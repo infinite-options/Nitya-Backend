@@ -140,11 +140,11 @@ RDS_PW = 'prashant'
 # RDS_PW = RdsPw()
 
 
-s3 = boto3.client('s3')
+#s3 = boto3.client('s3')
 
 # aws s3 bucket where the image is stored
 # BUCKET_NAME = os.environ.get('MEAL_IMAGES_BUCKET')
-BUCKET_NAME = 'servingnow'
+#BUCKET_NAME = 'servingnow'
 # allowed extensions for uploading a profile photo file
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
 
@@ -158,7 +158,7 @@ isDebug = False
 NOTIFICATION_HUB_KEY = os.environ.get('NOTIFICATION_HUB_KEY')
 NOTIFICATION_HUB_NAME = os.environ.get('NOTIFICATION_HUB_NAME')
 
-TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')	
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')   
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
 
 # Connect to MySQL database (API v2)
@@ -171,7 +171,7 @@ def connect():
 
     print("Trying to connect to RDS (API v2)...")
     try:
-        conn = pymysql.connect( RDS_HOST,
+        conn = pymysql.connect( host=RDS_HOST,
                                 user=RDS_USER,
                                 port=RDS_PORT,
                                 passwd=RDS_PW,
@@ -274,13 +274,17 @@ class appointments(Resource):
         response = {}
         items = {}
         try:
+            # Connect to the DataBase
             conn = connect()
+            # This is the actual query
             query = """ # QUERY 1 
                  SELECT * FROM nitya.customers, nitya.treatments, nitya.appointments WHERE customer_uid = appt_customer_uid AND treatment_uid = appt_treatment_uid; """
+            # The query is executed here
             items = execute(query, 'get', conn)
-
+            # The return message and result from query execution
             response['message'] = 'successful'
             response['result'] = items['result']
+            # Returns code and response
             return response, 200
         except:
             raise BadRequest('Request failed, please try again later.')
@@ -289,7 +293,264 @@ class appointments(Resource):
             
         # ENDPOINT THAT WORKS
         # http://localhost:4000/api/v2/appointments
+
+class treatments(Resource):
+    # QUERY 1 RETURNS ALL BUSINESSES
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # This is the actual query
+            query = """ # QUERY 1 
+                 SELECT * FROM  nitya.treatments; """
+            # The query is executed here
+            items = execute(query, 'get', conn)
+            # The return message and result from query execution
+            response['message'] = 'successful'
+            response['result'] = items['result']
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
         
+        # http://localhost:4000/api/v2/treatments
+
+class OneCustomerAppointments(Resource):
+    # QUERY 2 RETURNS A SPECIFIC BUSINESSES
+    def get(self, customer_uid):
+        response = {}
+        items = {}
+        print("appointment_uid", customer_uid)
+        try:
+            conn = connect()
+            query = """
+                    SELECT * FROM nitya.appointments
+                    WHERE appt_customer_uid = \'""" + customer_uid + """\';
+                    """
+            items = execute(query, 'get', conn)
+
+            response['message'] = 'Specific Appointment successful'
+            response['result'] = items['result']
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+        
+
+
+class FullBlog(Resource):
+    # QUERY 2 RETURNS A SPECIFIC BUSINESSES
+    def get(self,blog_id):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            query = """
+                    SELECT * FROM nitya.blog
+                    WHERE blog_uid = \'""" + blog_id + """\';
+                    """
+            items = execute(query, 'get', conn)
+
+            response['message'] = 'Specific Blog successful'
+            response['result'] = items['result']
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+class TruncatedBlog(Resource):
+    # QUERY 2 RETURNS A SPECIFIC BUSINESSES
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            query = """
+                    SELECT blog_uid,blogCategory,blogTitle,slug,postedOn,author,blogImage,LEFT(blogText, 200) AS blogText FROM blog ;
+                    """
+            items = execute(query, 'get', conn)
+
+            response['message'] = 'Specific Blog successful'
+            response['result'] = items['result']
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+class CreateAppointment(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+            customer_uid = data['appt_customer_uid']
+            treatment_uid = data['appt_treatment_uid']
+            notes = data['notes']
+            datevalue= data['appt_date']
+            timevalue = data['appt_time']
+            print('customer_uid', customer_uid)
+            print('treatment_uid', treatment_uid)
+            print('notes', notes)
+            print('date', datevalue)
+            print('time', timevalue)
+
+
+            #Query [0]  Get New UID
+            #query = ["CALL new_refund_uid;"]
+            query = ["CALL nitya.new_appointment_uid;"]
+            NewIDresponse = execute(query[0], 'get', conn)
+            NewID = NewIDresponse['result'][0]['new_id']
+            print("NewID = ", NewID) 
+            # NewID is an Array and new_id is the first element in that array
+            
+        
+
+            query = """INSERT INTO appointments
+                                (appointment_uid
+                                    , appt_customer_uid
+                                    , appt_treatment_uid
+                                    , notes
+                                    , appt_date
+                                    , appt_time
+                                    ) 
+                                VALUES
+                                (     \'""" +  NewID  + """\'
+                                    , \'""" + customer_uid + """\'
+                                    , \'""" + treatment_uid + """\'
+                                    , \'""" + notes + """\'
+                                    , \'""" + datevalue + """\'
+                                    , \'""" + timevalue + """\');"""
+            items = execute(query,'post',conn)
+
+            response['message'] = 'Appointments Post successful'
+            response['result'] = items
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+        # ENDPOINT AND JSON OBJECT THAT WORKS
+        # http://localhost:4000/api/v2/createappointment
+        
+            # {"appt_customer_id":"100-00090",
+            #  "appt_treatment_uid":"200-0000",
+            #  "notes":"deefefef",
+            #  "appt_date":"12:12:21",
+            #   "appt_time":"14:00"}
+
+class AddTreatment(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            #print("Received:", data)
+            
+            title = data['title']
+            description = data['description']
+            cost = data['cost']
+            availability= data['availability']
+            duration = data['duration']
+            image_url = data['image_url']
+            
+
+            query = ["CALL nitya.new_treatment_uid;"]
+            NewIDresponse = execute(query[0], 'get', conn)
+            NewID = NewIDresponse['result'][0]['new_id']
+            print("NewID = ", NewID) 
+        
+
+            query = """INSERT INTO treatments
+                                (treatment_uid
+                                    , title
+                                    , description
+                                    , cost
+                                    , availability
+                                    , duration
+                                    , image_url
+                                    ) 
+                                VALUES
+                                (     \'""" + NewID + """\'
+                                    , \'""" + title + """\'
+                                    , \'""" + description + """\'
+                                    , \'""" + cost + """\'
+                                    , \'""" + availability + """\'
+                                    , \'""" + duration + """\'
+                                    , \'""" + image_url+ """\');"""
+            items = execute(query,'post',conn)
+
+            response['message'] = 'Treatments Post successful'
+            response['result'] = items
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+class AddBlog(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            #print("Received:", data)
+            
+            
+            blogCategory = data['blogCategory']
+            blogTitle = data['blogTitle']
+            slug= data['slug']
+            author = data['author']
+            blogImage = data['blogImage']
+            blogText = data['blogText']
+            
+
+            query = ["CALL nitya.new_blog_uid;"]
+            NewIDresponse = execute(query[0], 'get', conn)
+            NewID = NewIDresponse['result'][0]['new_id']
+            print("NewID = ", NewID) 
+        
+
+            query = """INSERT INTO blog
+                                (blog_uid 
+                                    , blogCategory
+                                    , blogTitle
+                                    , slug
+                                    , author
+                                    , blogImage
+                                    , blogText
+                                    ) 
+                                VALUES
+                                (     \'""" + NewID + """\'
+                                    , \'""" + blogCategory + """\'
+                                    , \'""" + blogTitle + """\'
+                                    , \'""" + slug + """\'
+                                    , \'""" + author + """\'
+                                    , \'""" + blogImage + """\'
+                                    , \'""" + blogText+ """\');"""
+            items = execute(query,'post',conn)
+
+            response['message'] = 'Blog Post successful'
+            
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 
 # -- DEFINE APIS -------------------------------------------------------------------------------
@@ -300,6 +561,13 @@ class appointments(Resource):
 # Define API routes
 
 api.add_resource(appointments, '/api/v2/appointments')
+api.add_resource(treatments, '/api/v2/treatments')
+api.add_resource(FullBlog, '/api/v2/fullblog/<string:blog_id>')
+api.add_resource(TruncatedBlog, '/api/v2/truncatedblog')
+api.add_resource(OneCustomerAppointments, '/api/v2/onecustomerappointments/<string:customer_uid>')
+api.add_resource(CreateAppointment, '/api/v2/createappointment')
+api.add_resource(AddTreatment, '/api/v2/addtreatment')
+api.add_resource(AddBlog, '/api/v2/addblog')
 
 
 # Run on below IP address and port
