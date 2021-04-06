@@ -17,8 +17,9 @@ import uuid
 import boto3
 import json
 import math
-from datetime import datetime
-from datetime import timedelta
+
+from datetime import time,date,datetime,timedelta
+
 from pytz import timezone
 import random
 import string
@@ -158,7 +159,7 @@ isDebug = False
 NOTIFICATION_HUB_KEY = os.environ.get('NOTIFICATION_HUB_KEY')
 NOTIFICATION_HUB_NAME = os.environ.get('NOTIFICATION_HUB_NAME')
 
-TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')   
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')	
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
 
 # Connect to MySQL database (API v2)
@@ -318,6 +319,8 @@ class treatments(Resource):
             disconnect(conn)
         
         # http://localhost:4000/api/v2/treatments
+
+
 
 class OneCustomerAppointments(Resource):
     # QUERY 2 RETURNS A SPECIFIC BUSINESSES
@@ -552,6 +555,139 @@ class AddBlog(Resource):
         finally:
             disconnect(conn)
 
+class Calendar(Resource):
+    # QUERY 1 RETURNS ALL BUSINESSES
+    def get(self):
+        response = {}
+        items = {}
+        modified_items ={}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # This is the actual query
+            #query = """ # QUERY 1 
+            #     SELECT * FROM nitya.calendar_dates LEFT JOIN nitya.Practioner_availability ON calendar_date = date; """
+            # The query is executed here
+            query = """ # QUERY 1 
+                SELECT calendar_dates.calendar_date, calendar_dates.start_time, calendar_dates.end_time, Practioner_availability.start_time_notavailable, Practioner_availability.end_time_notavailable, appointments.appt_time, appointments.appt_treatment_uid, treatments.duration FROM  nitya.calendar_dates LEFT JOIN nitya.Practioner_availability ON calendar_date = date LEFT JOIN appointments on calendar_date = appt_date LEFT JOIN treatments on appt_treatment_uid = treatment_uid; """
+            # The query is executed here
+            items = execute(query, 'get', conn)
+            #print("Before function")
+            modified_items = self.getavailabletimes(items)
+            # The return message and result from query execution
+
+            response['message'] = 'successful'
+            response['result'] = modified_items
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+    def gethalfhourtimeslots(self, st, et):
+        l=[]
+        while(st < et):
+            l.append(st.time())
+            st = st+timedelta(minutes=30)
+        return l
+
+    def diff_list(self, li1, li2):
+        return (list(list(set(li1)-set(li2)) + list(set(li2)-set(li1))))
+
+
+
+    def getavailabletimes(self,items):
+        availability = {}
+        timeslots = {}
+        booked_appt = {}
+        result = []
+        for obj in items['result']:
+            calendar_date = obj['calendar_date']
+            
+            # To Calculate the day timeslots based on the start and end time(timeslots dictionary, key - date, value- list of 30 min time objects)
+            day_start_time = obj['start_time']
+            day_end_time =obj['end_time']
+            st = time(hour = int(day_start_time.split(":")[0]),minute = int(day_start_time.split(":")[1]), second = int(day_start_time.split(":")[2]))
+            et =  time(hour = int(day_end_time.split(":")[0]),minute = int(day_end_time.split(":")[1]), second = int(day_end_time.split(":")[2]))
+            st = datetime.combine(date.today(), st)
+            et = datetime.combine(date.today(), et)
+            if(calendar_date not in timeslots):
+                timeslots[calendar_date] = self.gethalfhourtimeslots(st, et)
+            #print (st)
+            #print (et)
+
+            # To Calculate the not available timeslots based on the start and end not available time(availability dictionary, key - date, value- list of 30 min time objects)
+            start_time_notavailable = obj['start_time_notavailable']
+            end_time_notavailable = obj['end_time_notavailable']
+            #print(start_time_notavailable)
+            #print(end_time_notavailable)
+            if(start_time_notavailable != None and end_time_notavailable != None):
+                st_na = time(hour = int(start_time_notavailable.split(":")[0]),minute = int(start_time_notavailable.split(":")[1]), second = int(start_time_notavailable.split(":")[2]))
+                et_na = time(hour = int(end_time_notavailable.split(":")[0]),minute = int(end_time_notavailable.split(":")[1]), second = int(end_time_notavailable.split(":")[2]))
+                st_na = datetime.combine(date.today(), st_na)
+                et_na = datetime.combine(date.today(), et_na)
+                if(calendar_date in availability):
+                    availability[calendar_date] = availability[calendar_date] + self.gethalfhourtimeslots(st_na, et_na)
+                else:
+                    availability[calendar_date] = self.gethalfhourtimeslots(st_na, et_na)
+
+
+            # To Calculate the appointments timeslots based on the duration of the appointment(booked_appt dictionary, key - date, value- list of 30 min time objects)
+            appt_start_time = obj['appt_time']
+            duration = obj['duration']
+            if(appt_start_time != None and duration != None):
+                appt_start_time = time(hour = int(appt_start_time.split(":")[0]),minute = int(appt_start_time.split(":")[1]), second = int(appt_start_time.split(":")[2]))
+                duration =  timedelta(hours = int(duration.split(":")[0]),minutes = int(duration.split(":")[1]), seconds = int(duration.split(":")[2]))
+                appt_start_time= datetime.combine(date.today(), appt_start_time)
+                #print(appt_start_time)
+                #print(duration)
+                appt_end_time = appt_start_time +duration
+                #print("End time")
+                #print(appt_end_time)
+                if(calendar_date in booked_appt):
+                    booked_appt[calendar_date] = booked_appt[calendar_date] + self.gethalfhourtimeslots(appt_start_time, appt_end_time)
+                else:
+                    booked_appt[calendar_date] = self.gethalfhourtimeslots(appt_start_time, appt_end_time)
+
+        # Removing not available timeslots from total timeslots
+        for d in availability:
+            if(d in timeslots):
+                timeslots[d] = self.diff_list(timeslots[d],availability[d])
+        
+        # Removing booked available timeslots from the remaining timeslots
+        for d in booked_appt:
+            if(d in timeslots):
+                timeslots[d] = self.diff_list(timeslots[d],booked_appt[d])
+
+        # sorting the timeslots
+        for k in timeslots:
+            timeslots[k].sort()
+            #print(k, timeslots[k])
+        #print(timeslots)
+
+        #The resultisof the format key=date, value= list of time objects, converting it to list of dictionaries,
+        #where each dictionary is of the format key= "date", value = list of time string 
+        for k in timeslots:
+            temp_dict = {}
+            temp_list = []
+            for t in timeslots[k]:
+                #print(t.strftime("%H:%M:%S"))
+                temp_list.append(t.strftime("%H:%M:%S"))
+            temp_dict["date"] = k
+            temp_dict["available_timeslots"] = temp_list
+            result.append(temp_dict)
+
+        #print(timeslots)
+        #items = serializeResponse(result)
+        #print(items)
+        #print('\n')
+
+            
+        return result
+
+            
+
 
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
@@ -568,6 +704,8 @@ api.add_resource(OneCustomerAppointments, '/api/v2/onecustomerappointments/<stri
 api.add_resource(CreateAppointment, '/api/v2/createappointment')
 api.add_resource(AddTreatment, '/api/v2/addtreatment')
 api.add_resource(AddBlog, '/api/v2/addblog')
+api.add_resource(Calendar, '/api/v2/calendar')
+
 
 
 # Run on below IP address and port
