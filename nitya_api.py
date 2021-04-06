@@ -137,7 +137,7 @@ def RdsPw():
 # RDS PASSWORD
 # When deploying to Zappa, set RDS_PW equal to the password as a string
 # When pushing to GitHub, set RDS_PW equal to RdsPw()
-RDS_PW = 'prashant'
+RDS_PW = '******'
 # RDS_PW = RdsPw()
 
 
