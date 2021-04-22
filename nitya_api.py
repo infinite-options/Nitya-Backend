@@ -93,7 +93,8 @@ stripe_secret_key = 'sk_test_fe99fW2owhFEGTACgW3qaykd006gHUwj1j'
 
 stripe.api_key = stripe_secret_key
 # Allow cross-origin resource sharing
-cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
+#cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
+CORS(app)
 
 # --------------- Mail Variables ------------------
 app.config['MAIL_USERNAME'] = os.environ.get('EMAIL')
@@ -389,16 +390,21 @@ class TruncatedBlog(Resource):
         finally:
             disconnect(conn)
 
+
 class CreateAppointment(Resource):
     def post(self):
         response = {}
         items = {}
+        cus_id = {}
         try:
             conn = connect()
             data = request.get_json(force=True)
             # print to Received data to Terminal
             #print("Received:", data)
-            customer_uid = data['appt_customer_uid']
+            first_name  = data['first_name']
+            last_name = data['last_name']
+            email = data['email']
+            phone_no = data['phone_no']
             treatment_uid = data['appt_treatment_uid']
             notes = data['notes']
             datevalue= data['appt_date']
@@ -406,11 +412,16 @@ class CreateAppointment(Resource):
             purchase_price = data['purchase_price']
             purchase_date = data['purchase_date']
 
-            #print('customer_uid', customer_uid)
-            #print('treatment_uid', treatment_uid)
-            #print('notes', notes)
-            #print('date', datevalue)
-            #print('time', timevalue)
+            print('first_name', first_name)
+            print('last_name', last_name)
+            print('email', email)
+            print('phone_no', phone_no)
+            print('treatment_uid', treatment_uid)
+            print('notes', notes)
+            print('date', datevalue)
+            print('time', timevalue)
+            print('purchase_price', purchase_price)
+            print('purchase_date', purchase_date)
 
 
             #Query [0]  Get New UID
@@ -420,10 +431,51 @@ class CreateAppointment(Resource):
             NewID = NewIDresponse['result'][0]['new_id']
             print("NewID = ", NewID) 
             # NewID is an Array and new_id is the first element in that array
+           
+
+            query1 = """ SELECT customer_uid FROM nitya.customers WHERE customer_first_name = \'""" + first_name+ """\' AND customer_last_name = \'""" + last_name + """\' AND customer_email = \'""" + email  + """\' AND customer_phone_num = \'""" + phone_no + """\';"""
+            cus_id = execute(query1,'get', conn)
+            print(cus_id['result'])
+            for obj in cus_id['result']:
+                    NewcustomerID = obj['customer_uid']
+                    print(NewcustomerID)
+           
+            print(len(cus_id['result']))
+
+            if len(cus_id['result']) == 0:
+                    query = ["CALL nitya.new_customer_uid;"]
+                    NewIDresponse = execute(query[0], 'get', conn)
+                    NewcustomerID = NewIDresponse['result'][0]['new_id']
+                    customer_insert_query = """
+                                        INSERT INTO nitya.customers 
+                                        (
+                                            customer_uid,
+                                            customer_first_name,
+                                            customer_last_name,
+                                            customer_phone_num,
+                                            customer_email
+                                        )
+                                        VALUES
+                                        (
+                                        
+                                            \'""" + NewcustomerID + """\',
+                                            \'""" + first_name + """\',
+                                            \'""" + last_name + """\',
+                                            \'""" + phone_no + """\',
+                                            \'""" + email + """\'
+                                           );"""
+
+                    customer_items = execute(customer_insert_query, 'post', conn)
+                    print("NewcustomerID=", NewcustomerID)
+            else:
+                for obj in cus_id['result']:
+                    NewcustomerID = obj['customer_uid']
+                    print("customerID = ", NewcustomerID) 
+
             
         
 
-            query = """INSERT INTO appointments
+            query2 = """INSERT INTO appointments
                                 (appointment_uid
                                     , appt_customer_uid
                                     , appt_treatment_uid
@@ -435,14 +487,14 @@ class CreateAppointment(Resource):
                                     ) 
                                 VALUES
                                 (     \'""" +  NewID  + """\'
-                                    , \'""" + customer_uid + """\'
+                                    , \'""" + NewcustomerID + """\'
                                     , \'""" + treatment_uid + """\'
                                     , \'""" + notes + """\'
                                     , \'""" + datevalue + """\'
                                     , \'""" + timevalue + """\'
                                     ,\'""" + purchase_price + """\'
                                     ,\'""" + purchase_date + """\');"""
-            items = execute(query,'post',conn)
+            items = execute(query2,'post',conn)
 
             response['message'] = 'Appointments Post successful'
             response['result'] = items
@@ -450,7 +502,7 @@ class CreateAppointment(Resource):
         except:
             raise BadRequest('Request failed, please try again later.')
         finally:
-            disconnect(conn)
+            disconnect(conn)   
 
         # ENDPOINT AND JSON OBJECT THAT WORKS
         # http://localhost:4000/api/v2/createappointment
@@ -827,14 +879,14 @@ class Calendar(Resource):
 
 api.add_resource(appointments, '/api/v2/appointments')
 api.add_resource(treatments, '/api/v2/treatments')
-api.add_resource(FullBlog, '/api/v2/fullblog/<string:blog_id>')
-api.add_resource(TruncatedBlog, '/api/v2/truncatedblog')
-api.add_resource(OneCustomerAppointments, '/api/v2/onecustomerappointments/<string:customer_uid>')
-api.add_resource(CreateAppointment, '/api/v2/createappointment')
-api.add_resource(AddTreatment, '/api/v2/addtreatment')
-api.add_resource(AddBlog, '/api/v2/addblog')
+api.add_resource(FullBlog, '/api/v2/fullBlog/<string:blog_id>')
+api.add_resource(TruncatedBlog, '/api/v2/truncatedBlog')
+api.add_resource(OneCustomerAppointments, '/api/v2/oneCustomerAppointments/<string:customer_uid>')
+api.add_resource(CreateAppointment, '/api/v2/createAppointment')
+api.add_resource(AddTreatment, '/api/v2/addTreatment')
+api.add_resource(AddBlog, '/api/v2/addBlog')
 api.add_resource(Calendar, '/api/v2/calendar/<string:treatment_uid>/<string:date_value>')
-api.add_resource(AddContact, '/api/v2/addcontact')
+api.add_resource(AddContact, '/api/v2/addContact')
 api.add_resource(purchaseDetails, '/api/v2/purchases')
 
 
