@@ -650,6 +650,7 @@ class AddBlog(Resource):
             blogCategory = data["blogCategory"]
             blogTitle = data["blogTitle"]
             slug = data["slug"]
+            postedOn = data["postedOn"]
             author = data["author"]
             blogImage = data["blogImage"]
             blogText = data["blogText"]
@@ -665,6 +666,7 @@ class AddBlog(Resource):
                                     , blogCategory
                                     , blogTitle
                                     , slug
+                                    , postedOn
                                     , author
                                     , blogImage
                                     , blogText
@@ -681,6 +683,9 @@ class AddBlog(Resource):
                 + """\'
                                     , \'"""
                 + slug
+                + """\'
+                                    , \'"""
+                + postedOn
                 + """\'
                                     , \'"""
                 + author
