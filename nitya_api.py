@@ -1225,7 +1225,7 @@ class createAccount(Resource):
 
             # generate coupon for new user
 
-            # query = ["CALL sf.new_coupons_uid;"]
+            # query = ["CALL nitya.new_coupons_uid;"]
             # couponIDresponse = execute(query[0], "get", conn)
             # couponID = couponIDresponse["result"][0]["new_id"]
             # EndDate = date.today() + timedelta(days=30)
@@ -1233,7 +1233,7 @@ class createAccount(Resource):
 
             # query = (
             #     """
-            #         INSERT INTO sf.coupons 
+            #         INSERT INTO nitya.coupons 
             #         (
             #             coupon_uid, 
             #             coupon_id, 
@@ -1359,7 +1359,7 @@ class Login(Resource):
                         user_access_token,
                         user_refresh_token,
                         social_id
-                    FROM sf.customers c
+                    FROM nitya.customers c
                     WHERE customer_email = \'""" + email + """\';
                 """
             )
@@ -1451,7 +1451,7 @@ class Login(Resource):
                 del items["result"][0]["email_verified"]
 
                 query = (
-                    "SELECT * from sf.customers WHERE customer_email = '" + email + "';"
+                    "SELECT * from nitya.customers WHERE customer_email = '" + email + "';"
                 )
                 items = execute(query, "get", conn)
                 items["message"] = "Authenticated successfully."
