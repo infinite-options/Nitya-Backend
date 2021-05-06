@@ -81,18 +81,47 @@ RDS_DB = "nitya"
 # app = Flask(__name__)
 app = Flask(__name__, template_folder="assets")
 
+
+
+
+
+
+
+
+
 # --------------- Stripe Variables ------------------
 # these key are using for testing. Customer should use their stripe account's keys instead
 import stripe
 
-stripe_public_key = "pk_test_6RSoSd9tJgB2fN2hGkEDHCXp00MQdrK3Tw"
-stripe_secret_key = "sk_test_fe99fW2owhFEGTACgW3qaykd006gHUwj1j"
+
+# STRIPE AND PAYPAL KEYS
+paypal_secret_test_key = os.environ.get('paypal_secret_key_test')
+paypal_secret_live_key = os.environ.get('paypal_secret_key_live')
+
+paypal_client_test_key = os.environ.get('paypal_client_test_key')
+paypal_client_live_key = os.environ.get('paypal_client_live_key')
+
+stripe_public_test_key = os.environ.get('stripe_public_test_key')
+stripe_secret_test_key = os.environ.get('stripe_secret_test_key')
+
+stripe_public_live_key = os.environ.get('stripe_public_live_key')
+stripe_secret_live_key = os.environ.get('stripe_secret_live_key')
+
+stripe.api_key = stripe_secret_test_key
+
+#use below for local testing
+#stripe.api_key = "sk_test_51HyqrgLMju5RPM***299bo00yD1lTRNK" 
+
+# ORIGINAL CODE
+
+# stripe_public_key = "pk_test_6RSoSd9tJgB2fN2hGkEDHCXp00MQdrK3Tw"
+# stripe_secret_key = "sk_test_fe99fW2owhFEGTACgW3qaykd006gHUwj1j"
 
 # this is a testing key using ptydtesting's stripe account.
 # stripe_public_key = "pk_test_51H0sExEDOlfePYdd9TVlnhVDOCmmnmdxAxyAmgW4x7OI0CR7tTrGE2AyrTk8VjftoigEOhv2RTUv5F8yJrfp4jWQ00Q6KGXDHV"
 # stripe_secret_key = "sk_test_51H0sExEDOlfePYdd9UQDxfp8yoY7On272hCR9ti12WSNbIGTysaJI8K2W8NhCKqdBOEhiNj4vFOtQu6goliov8vF00cvqfWG6d"
 
-stripe.api_key = stripe_secret_key
+# stripe.api_key = stripe_secret_key
 # Allow cross-origin resource sharing
 # cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
 CORS(app)
@@ -1463,7 +1492,14 @@ class Login(Resource):
         finally:
             disconnect(conn)
 
-
+class stripe_key(Resource):
+    
+    def get(self, desc):    
+        print(desc)      
+        if desc == 'NITYATEST':
+            return {'publicKey': stripe_public_test_key} 
+        else:             
+            return {'publicKey': stripe_public_live_key} 
 
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
@@ -1487,6 +1523,7 @@ api.add_resource(purchaseDetails, "/api/v2/purchases")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
 api.add_resource(Login, "/api/v2/Login/")
+api.add_resource(stripe_key, '/api/v2/stripe_key/<string:desc>')
 
 
 # Run on below IP address and port
