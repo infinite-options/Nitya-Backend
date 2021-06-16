@@ -1,4 +1,4 @@
-# To run program:  python3 io_api.py
+# To run program:  python3 nitya_api.py
 
 # README:  if conn error make sure password is set properly in RDS PASSWORD section
 
@@ -110,20 +110,9 @@ stripe_secret_live_key = os.environ.get('stripe_secret_live_key')
 stripe.api_key = stripe_secret_test_key
 
 #use below for local testing
-#stripe.api_key = "sk_test_51HyqrgLMju5RPM***299bo00yD1lTRNK" 
+#stripe.api_key = ""sk_test_51J0UzOLGBFAvIBPFAm7Y5XGQ5APR...WTenXV4Q9ANpztS7Y7ghtwb007quqRPZ3"" 
 
-# ORIGINAL CODE
 
-# stripe_public_key = "pk_test_6RSoSd9tJgB2fN2hGkEDHCXp00MQdrK3Tw"
-# stripe_secret_key = "sk_test_fe99fW2owhFEGTACgW3qaykd006gHUwj1j"
-
-# this is a testing key using ptydtesting's stripe account.
-# stripe_public_key = "pk_test_51H0sExEDOlfePYdd9TVlnhVDOCmmnmdxAxyAmgW4x7OI0CR7tTrGE2AyrTk8VjftoigEOhv2RTUv5F8yJrfp4jWQ00Q6KGXDHV"
-# stripe_secret_key = "sk_test_51H0sExEDOlfePYdd9UQDxfp8yoY7On272hCR9ti12WSNbIGTysaJI8K2W8NhCKqdBOEhiNj4vFOtQu6goliov8vF00cvqfWG6d"
-
-# stripe.api_key = stripe_secret_key
-# Allow cross-origin resource sharing
-# cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
 CORS(app)
 
 # --------------- Mail Variables ------------------
@@ -323,9 +312,15 @@ class appointments(Resource):
         try:
             # Connect to the DataBase
             conn = connect()
-            # This is the actual query
-            query = """ # QUERY 1 
-                 SELECT * FROM nitya.customers, nitya.treatments, nitya.appointments WHERE customer_uid = appt_customer_uid AND treatment_uid = appt_treatment_uid; """
+            # QUERY 1
+            query = """  
+                 SELECT * 
+                 FROM nitya.customers, 
+                    nitya.treatments, 
+                    nitya.appointments 
+                WHERE customer_uid = appt_customer_uid 
+                    AND treatment_uid = appt_treatment_uid;
+                     """
             # The query is executed here
             items = execute(query, "get", conn)
             # The return message and result from query execution
@@ -334,7 +329,7 @@ class appointments(Resource):
             # Returns code and response
             return response, 200
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Appointments Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -349,8 +344,8 @@ class treatments(Resource):
         try:
             # Connect to the DataBase
             conn = connect()
-            # This is the actual query
-            query = """ # QUERY 1 
+            # QUERY 2
+            query = """  
                  SELECT * FROM  nitya.treatments; """
             # The query is executed here
             items = execute(query, "get", conn)
@@ -360,7 +355,7 @@ class treatments(Resource):
             # Returns code and response
             return response, 200
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Treatments Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -374,6 +369,7 @@ class OneCustomerAppointments(Resource):
         print("appointment_uid", customer_uid)
         try:
             conn = connect()
+            # QUERY 3
             query = (
                 """
                     SELECT * FROM nitya.appointments
@@ -386,7 +382,7 @@ class OneCustomerAppointments(Resource):
             response["result"] = items["result"]
             return response, 200
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Customer Appointments Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -397,6 +393,7 @@ class FullBlog(Resource):
         items = {}
         try:
             conn = connect()
+             # QUERY 4
             query = (
                 """
                     SELECT * FROM nitya.blog
@@ -409,7 +406,7 @@ class FullBlog(Resource):
             response["result"] = items["result"]
             return response, 200
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Full Blog Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -420,8 +417,9 @@ class TruncatedBlog(Resource):
         items = {}
         try:
             conn = connect()
+             # QUERY 5
             query = """
-                    SELECT blog_uid,blogCategory,blogTitle,slug,postedOn,author,blogImage,LEFT(blogText, 200) AS blogText FROM blog ;
+                    SELECT blog_uid,blogCategory,blogTitle,slug,postedOn,author,blogImage,LEFT(blogText, 200) AS blogText FROM nitya.blog ;
                     """
             items = execute(query, "get", conn)
 
@@ -429,7 +427,7 @@ class TruncatedBlog(Resource):
             response["result"] = items["result"]
             return response, 200
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Specific Blog Request failed, please try again later.")
         finally:
             disconnect(conn)
 
