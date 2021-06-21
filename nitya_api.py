@@ -69,23 +69,14 @@ import pytz
 import pymysql
 import requests
 
-# RDS_HOST = 'pm-mysqldb.cxjnrciilyjq.us-west-1.rds.amazonaws.com'
+
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
-# RDS_HOST = 'localhost'
 RDS_PORT = 3306
-# RDS_USER = 'root'
 RDS_USER = "admin"
-# RDS_DB = 'feed_the_hungry'
 RDS_DB = "nitya"
 
 # app = Flask(__name__)
 app = Flask(__name__, template_folder="assets")
-
-
-
-
-
-
 
 
 
@@ -779,14 +770,14 @@ class Calendar(Resource):
                             FROM nitya.appointments
                             LEFT JOIN nitya.treatments
                             ON appt_treatment_uid = treatment_uid    
-                            WHERE appt_date = "2021-06-13") AS appt_dur
+                            WHERE appt_date = '""" + date_value + """') AS appt_dur
                         ON TIME(ts.begin_time) = appt_dur.start_time
                             OR (TIME(ts.begin_time) > appt_dur.start_time AND TIME(ts.stop_time) <= ADDTIME(appt_dur.end_time,"0:29"))
                         -- GET PRACTIONER AVAILABILITY
                         LEFT JOIN (
                             SELECT *
                             FROM nitya.practioner_availability
-                            WHERE date = "2021-06-13") AS pa
+                            WHERE date = '""" + date_value + """') AS pa
                         ON TIME(ts.begin_time) = pa.start_time_notavailable
                             OR (TIME(ts.begin_time) > pa.start_time_notavailable AND TIME(ts.stop_time) <= ADDTIME(pa.end_time_notavailable,"0:29"))
                         -- GET OPEN HOURS
@@ -795,7 +786,7 @@ class Calendar(Resource):
                                 -- ADDTIME(morning_start_time, "0:29"),
                                 -- if(morning_start_time = "9:00:00","Y","N")
                             FROM nitya.days
-                            WHERE dayofweek = DAYOFWEEK("2021-06-13")) AS openhrs
+                            WHERE dayofweek = DAYOFWEEK('""" + date_value + """')) AS openhrs
                         ON TIME(ts.begin_time) = openhrs.morning_start_time
                             OR (TIME(ts.begin_time) > openhrs.morning_start_time AND TIME(ts.stop_time) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_time) = openhrs.afternoon_start_time
