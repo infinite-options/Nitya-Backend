@@ -521,6 +521,7 @@ class CreateAppointment(Resource):
                     NewcustomerID = obj["customer_uid"]
                     print("customerID = ", NewcustomerID)
 
+            #  convert to new format:  payment_time_stamp = \'''' + getNow() + '''\',
             query2 = (
                 """
                     INSERT INTO appointments
@@ -737,15 +738,100 @@ class purchaseDetails(Resource):
             disconnect(conn)
 
 
+
 class Calendar(Resource):
+    def get(self, date_value):
+        print("\nInside Calendar Availability")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            print("Inside try block", id)
+
+            # CALCULATE AVAILABLE TIME SLOTS
+            query = """
+                    SELECT 
+                        TIME_FORMAT(ts_begin, '%T') AS appt_start,
+                        TIME_FORMAT(ts_end, '%T') AS appt_end
+                        -- *,
+                        -- TIMEDIFF(stop_time,begin_time),
+                        -- IF (ISNULL(taadpa.appointment_uid) AND ISNULL(taadpa.prac_avail_uid) AND !ISNULL(days_uid), "Available", "Not Available") AS AVAILABLE
+                    FROM(
+                        -- GET TIME SLOTS
+                        SELECT ts.*,
+                            TIME(ts.begin_time) AS ts_begin,
+                            TIME(ts.stop_time) AS ts_end,
+                            appt_dur.*,
+                            pa.*,
+                            openhrs.*
+                        FROM nitya.time_slots ts
+                        -- GET CURRENT APPOINTMENTS
+                        LEFT JOIN (
+                            SELECT -- *,
+                                appointment_uid,
+                                appt_date,
+                                appt_time AS start_time,
+                                duration,
+                                ADDTIME(appt_time, duration) AS end_time,
+                                cast(concat(appt_date, ' ', appt_time) as datetime) as start,
+                                cast(concat(appt_date, ' ', ADDTIME(appt_time, duration)) as datetime) as end
+                            FROM nitya.appointments
+                            LEFT JOIN nitya.treatments
+                            ON appt_treatment_uid = treatment_uid    
+                            WHERE appt_date = "2021-06-13") AS appt_dur
+                        ON TIME(ts.begin_time) = appt_dur.start_time
+                            OR (TIME(ts.begin_time) > appt_dur.start_time AND TIME(ts.stop_time) <= ADDTIME(appt_dur.end_time,"0:29"))
+                        -- GET PRACTIONER AVAILABILITY
+                        LEFT JOIN (
+                            SELECT *
+                            FROM nitya.practioner_availability
+                            WHERE date = "2021-06-13") AS pa
+                        ON TIME(ts.begin_time) = pa.start_time_notavailable
+                            OR (TIME(ts.begin_time) > pa.start_time_notavailable AND TIME(ts.stop_time) <= ADDTIME(pa.end_time_notavailable,"0:29"))
+                        -- GET OPEN HOURS
+                        LEFT JOIN (
+                            SELECT *
+                                -- ADDTIME(morning_start_time, "0:29"),
+                                -- if(morning_start_time = "9:00:00","Y","N")
+                            FROM nitya.days
+                            WHERE dayofweek = DAYOFWEEK("2021-06-13")) AS openhrs
+                        ON TIME(ts.begin_time) = openhrs.morning_start_time
+                            OR (TIME(ts.begin_time) > openhrs.morning_start_time AND TIME(ts.stop_time) <= ADDTIME(openhrs.morning_end_time,"0:29"))
+                            OR TIME(ts.begin_time) = openhrs.afternoon_start_time
+                            OR (TIME(ts.begin_time) > openhrs.afternoon_start_time AND TIME(ts.stop_time) <= ADDTIME(openhrs.afternoon_end_time,"0:29")) 
+                        )AS taadpa
+                    WHERE ISNULL(taadpa.appointment_uid) 
+                        AND ISNULL(taadpa.prac_avail_uid)
+                        AND !ISNULL(days_uid)
+                    """
+
+            available_times = execute(query, 'get', conn)
+            print("Available Times: ", str(available_times['result']))
+            print("Number of time slots: ", len(available_times['result']))
+            print("Available Times: ", str(available_times['result'][0]["appt_start"]))
+
+            return available_times['result']
+
+        except:
+            raise BadRequest('Available Time Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
+
+
+class Calendar_original(Resource):
+    print("did it get here")
     def get(self, treatment_uid, date_value):
         response = {}
         items = {}
         modified_items = {}
         # print(date_value)
-        day_value = datetime.strptime(date_value, "%m-%d-%Y").weekday()
+        # day_value = datetime.strptime(date_value, "%m-%d-%Y").weekday()
+        day_value = datetime.strptime(date_value, "%Y-%m-%d").weekday()
         modified_date_value = date_value.replace("-", "/")
-        # print(modified_date_value)
+        print(modified_date_value)
 
         day = calendar.day_name[day_value]
         # print(day)
@@ -1514,7 +1600,8 @@ api.add_resource(
 api.add_resource(CreateAppointment, "/api/v2/createAppointment")
 api.add_resource(AddTreatment, "/api/v2/addTreatment")
 api.add_resource(AddBlog, "/api/v2/addBlog")
-api.add_resource(Calendar, "/api/v2/calendar/<string:treatment_uid>/<string:date_value>")
+api.add_resource(Calendar, "/api/v2/calendar/<string:date_value>")
+# api.add_resource(Calendar, "/api/v2/calendar/<string:treatment_uid>/<string:date_value>")
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
