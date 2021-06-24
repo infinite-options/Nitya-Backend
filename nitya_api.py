@@ -138,13 +138,19 @@ api = Api(app)
 # convert to UTC time zone when testing in local time zone
 utc = pytz.utc
 
+# # These statment return Day and Time in GMT
+# def getToday(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d")
+# def getNow(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d %H:%M:%S")
 
-def getToday():
-    return datetime.strftime(datetime.now(utc), "%Y-%m-%d")
+# # These statment return Day and Time in Local Time - Not sure about PST vs PDT
+def getToday(): return datetime.strftime(datetime.now(), "%Y-%m-%d")
+def getNow(): return datetime.strftime(datetime.now(),"%Y-%m-%d %H:%M:%S")
 
-
-def getNow():
-    return datetime.strftime(datetime.now(utc), "%Y-%m-%d %H:%M:%S")
+# Not sure what these statments do
+# getToday = lambda: datetime.strftime(date.today(), "%Y-%m-%d")
+# print(getToday)
+# getNow = lambda: datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
+# print(getNow)
 
 
 # Get RDS password from command line argument
@@ -170,8 +176,6 @@ RDS_PW = "prashant"
 ALLOWED_EXTENSIONS = set(["png", "jpg", "jpeg"])
 
 
-getToday = lambda: datetime.strftime(date.today(), "%Y-%m-%d")
-getNow = lambda: datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
 
 # For Push notification
 isDebug = False
@@ -290,12 +294,25 @@ def runSelectQuery(query, cur):
         raise Exception("Could not run select query and/or return data")
 
 
-# ===========================================================
+# -- Stored Procedures start here -------------------------------------------------------------------------------
 
+
+# RUN STORED PROCEDURES
+def get_new_paymentID(conn):
+    newPaymentQuery = execute("CALL new_payment_uid", 'get', conn)
+    if newPaymentQuery['code'] == 280:
+        return newPaymentQuery['result'][0]['new_id']
+    return "Could not generate new payment ID", 500
+
+def get_new_contactUID(conn):
+    newPurchaseQuery = execute("CALL nitya.new_contact_uid()", 'get', conn)
+    if newPurchaseQuery['code'] == 280:
+        return newPurchaseQuery['result'][0]['new_id']
+    return "Could not generate new contact UID", 500
 
 # -- Queries start here -------------------------------------------------------------------------------
 
-# -- 1.  GET Query
+# QUERY 1:  FINDS ALL CUSTOMERS APPOINTMENTS
 class appointments(Resource):
     def get(self):
         response = {}
@@ -305,13 +322,10 @@ class appointments(Resource):
             conn = connect()
             # QUERY 1
             query = """  
-                 SELECT * 
-                 FROM nitya.customers, 
-                    nitya.treatments, 
-                    nitya.appointments 
-                WHERE customer_uid = appt_customer_uid 
-                    AND treatment_uid = appt_treatment_uid;
-                     """
+                SELECT * FROM nitya.customers, nitya.treatments, nitya.appointments
+                WHERE customer_uid = appt_customer_uid
+	                AND treatment_uid = appt_treatment_uid;
+                """
             # The query is executed here
             items = execute(query, "get", conn)
             # The return message and result from query execution
@@ -328,6 +342,32 @@ class appointments(Resource):
         # http://localhost:4000/api/v2/appointments
 
 
+class OneCustomerAppointments(Resource):
+    def get(self, customer_uid):
+        response = {}
+        items = {}
+        print("appointment_uid", customer_uid)  
+        try:
+            conn = connect()
+            # QUERY 1B:  FINDS SPECIFIC CUSTOMERS APPOINTMENTS  
+            query = """
+                SELECT * FROM nitya.customers, nitya.treatments, nitya.appointments
+		        WHERE customer_uid = appt_customer_uid
+			        AND treatment_uid = appt_treatment_uid
+                    AND customer_uid = \'""" + customer_uid + """\';
+                """
+            items = execute(query, "get", conn)
+
+            response["message"] = "Specific Appointment successful"
+            response["result"] = items["result"]
+            return response, 200
+        except:
+            raise BadRequest("Customer Appointments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+# QUERY 2:  GETS ALL TREATMENTS
 class treatments(Resource):
     def get(self):
         response = {}
@@ -337,7 +377,9 @@ class treatments(Resource):
             conn = connect()
             # QUERY 2
             query = """  
-                 SELECT * FROM  nitya.treatments; """
+                SELECT * FROM  nitya.treatments
+                WHERE availability = "Available"; 
+                """
             # The query is executed here
             items = execute(query, "get", conn)
             # The return message and result from query execution
@@ -353,29 +395,6 @@ class treatments(Resource):
         # http://localhost:4000/api/v2/treatments
 
 
-class OneCustomerAppointments(Resource):
-    def get(self, customer_uid):
-        response = {}
-        items = {}
-        print("appointment_uid", customer_uid)
-        try:
-            conn = connect()
-            # QUERY 3
-            query = (
-                """
-                    SELECT * FROM nitya.appointments
-                    WHERE appt_customer_uid = \'""" + customer_uid + """\';
-                """
-            )
-            items = execute(query, "get", conn)
-
-            response["message"] = "Specific Appointment successful"
-            response["result"] = items["result"]
-            return response, 200
-        except:
-            raise BadRequest("Customer Appointments Request failed, please try again later.")
-        finally:
-            disconnect(conn)
 
 
 class FullBlog(Resource):
@@ -678,25 +697,29 @@ class AddContact(Resource):
             email = data["email"]
             subject = data["subject"]
             message = data["message"]
+            print(data)
+            print(message)
 
-            query = (
-                """INSERT INTO contact
-                                (name
-                                    , email
-                                    , subject
-                                    , message
-                                    ) 
-                                VALUES
-                                (     \'""" + name + """\'
-                                    , \'""" + email + """\'
-                                    , \'""" + subject + """\'
-                                    , \'""" + message + """\');"""
-            )
+            new_contact_uid = get_new_contactUID(conn)
+            print(new_contact_uid)
+            print(getNow())
+
+            
+            query =  '''
+                INSERT INTO nitya.contact
+                SET contact_uid = \'''' + new_contact_uid + '''\',
+                    contact_created_at = \'''' + getNow() + '''\',
+                    name = \'''' + name + '''\',
+                    email = \'''' + email + '''\',
+                    subject = \'''' + subject + '''\',
+                    message = \'''' + message + '''\'
+                '''
+            
             items = execute(query, "post", conn)
-
-            response["message"] = "Contact Post successful"
-
-            return response, 200
+            print("items: ", items)
+            if items["code"] == 281:
+                response["message"] = "Contact Post successful"
+                return response, 200
         except:
             raise BadRequest("Request failed, please try again later.")
         finally:
