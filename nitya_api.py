@@ -736,7 +736,12 @@ class purchaseDetails(Resource):
             conn = connect()
             # This is the actual query
             query = """ # QUERY 1 
-                 SELECT appointment_uid,customer_first_name,customer_last_name,customer_phone_num, customer_email,appt_date,appt_time,purchase_price, purchase_date,cost, appt_treatment_uid,title FROM appointments LEFT JOIN customers ON appt_customer_uid = customer_uid LEFT JOIN treatments ON appt_treatment_uid = treatment_uid; """
+                 SELECT appointment_uid,customer_first_name,customer_last_name,customer_phone_num, customer_email,appt_date,appt_time,purchase_price, purchase_date,cost, appt_treatment_uid,title 
+                 FROM appointments 
+                 LEFT JOIN customers 
+                 ON appt_customer_uid = customer_uid 
+                 LEFT JOIN treatments 
+                 ON appt_treatment_uid = treatment_uid; """
 
             # The query is executed here
             items = execute(query, "get", conn)
@@ -751,7 +756,126 @@ class purchaseDetails(Resource):
         finally:
             disconnect(conn)
 
+class AvailableAppointments(Resource):
+    def get(self, date_value, duration):
+        print("\nInside Available Appointments")
+        response = {}
+        items = {}
 
+        try:
+            conn = connect()
+            print("Inside try block", date_value, duration)
+
+            # CALCULATE AVAILABLE TIME SLOTS
+            query = """
+                    -- AVAILABLE TIME SLOTS QUERY - WORKS
+                    WITH ats AS (
+                    -- CALCULATE AVAILABLE TIME SLOTS
+                    SELECT -- *,
+                        -- ROW_NUMBER() OVER() AS row_num,
+                        row_num,
+                        cast(begin_datetime as time) AS begin_time,
+                        cast(end_datetime as time) AS end_time
+                        -- *,
+                        -- TIMEDIFF(stop_time,begin_time),
+                        -- IF (ISNULL(taadpa.appointment_uid) AND ISNULL(taadpa.prac_avail_uid) AND !ISNULL(days_uid), "Available", "Not Available") AS AVAILABLE
+                    FROM(
+                        -- GET TIME SLOTS
+                        SELECT ts.*,
+                            ROW_NUMBER() OVER() AS row_num,
+                            TIME(ts.begin_datetime) AS ts_begin,
+                            TIME(ts.end_datetime) AS ts_end,
+                            appt_dur.*,
+                            pa.*,
+                            openhrs.*
+                        FROM nitya.time_slots ts
+                        -- GET CURRENT APPOINTMENTS
+                        LEFT JOIN (
+                            SELECT -- *,
+                                appointment_uid,
+                                appt_date,
+                                appt_time AS start_time,
+                                duration,
+                                ADDTIME(appt_time, duration) AS end_time,
+                                cast(concat(appt_date, ' ', appt_time) as datetime) as start,
+                                cast(concat(appt_date, ' ', ADDTIME(appt_time, duration)) as datetime) as end
+                            FROM nitya.appointments
+                            LEFT JOIN nitya.treatments
+                            ON appt_treatment_uid = treatment_uid    
+                            WHERE appt_date = '""" + date_value + """') AS appt_dur
+                        ON TIME(ts.begin_datetime) = appt_dur.start_time
+                            OR (TIME(ts.begin_datetime) > appt_dur.start_time AND TIME(end_datetime) <= ADDTIME(appt_dur.end_time,"0:29"))
+                        -- GET PRACTIONER AVAILABILITY
+                        LEFT JOIN (
+                            SELECT *
+                            FROM nitya.practioner_availability
+                            WHERE date = '""" + date_value + """') AS pa
+                        ON TIME(ts.begin_datetime) = pa.start_time_notavailable
+                            OR (TIME(ts.begin_datetime) > pa.start_time_notavailable AND TIME(ts.end_datetime) <= ADDTIME(pa.end_time_notavailable,"0:29"))
+                        -- GET OPEN HOURS
+                        LEFT JOIN (
+                            SELECT *
+                            FROM nitya.days
+                            WHERE dayofweek = DAYOFWEEK('""" + date_value + """')) AS openhrs
+                        ON TIME(ts.begin_datetime) = openhrs.morning_start_time
+                            OR (TIME(ts.begin_datetime) > openhrs.morning_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.morning_end_time,"0:29"))
+                            OR TIME(ts.begin_datetime) = openhrs.afternoon_start_time
+                            OR (TIME(ts.begin_datetime) > openhrs.afternoon_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.afternoon_end_time,"0:29")) 
+                        )AS taadpa
+                    WHERE ISNULL(taadpa.appointment_uid) 
+                        AND ISNULL(taadpa.prac_avail_uid)
+                        AND !ISNULL(days_uid)
+                    )
+
+                    SELECT *
+                    FROM (
+                        SELECT -- *,
+                            row_num,
+                            DATE_FORMAT(begin_time, '%T') AS "begin_time",
+                            CASE
+                                WHEN ISNULL(row_num_hr) THEN "0:29:59"
+                                WHEN ISNULL(row_num_hrhalf) THEN "0:59:59"
+                                WHEN ISNULL(row_num_twohr) THEN "1:29:59"
+                                ELSE "1:59:59"
+                            END AS available_duration
+                        FROM (
+                            SELECT *
+                            FROM ats
+                            LEFT JOIN (
+                                SELECT 	
+                                    row_num as row_num_hr,
+                                    begin_time AS begin_time_hr,
+                                    end_time AS end_time_hr
+                                FROM ats) AS ats1
+                            ON ats.row_num + 1 = ats1.row_num_hr
+                            LEFT JOIN (
+                                SELECT 	
+                                    row_num as row_num_hrhalf,
+                                    begin_time AS begin_time_hrhalf,
+                                    end_time AS end_time_hrhalf
+                                FROM ats) AS ats2
+                            ON ats.row_num + 2 = ats2.row_num_hrhalf
+                            LEFT JOIN (
+                                SELECT 	
+                                    row_num as row_num_twohr,
+                                    begin_time AS begin_time_twohr,
+                                    end_time AS end_time_twohr
+                                FROM ats) AS ats3
+                            ON ats.row_num + 3 = ats3.row_num_twohr) AS atss) AS atsss
+                    WHERE '""" + duration + """' <= available_duration;
+                    """
+
+            available_times = execute(query, 'get', conn)
+            print("Available Times: ", str(available_times['result']))
+            print("Number of time slots: ", len(available_times['result']))
+            # print("Available Times: ", str(available_times['result'][0]["appt_start"]))
+
+            return available_times
+        
+        except:
+            raise BadRequest('Available Time Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 class Calendar(Resource):
     def get(self, date_value):
@@ -827,6 +951,78 @@ class Calendar(Resource):
 
             return available_times['result']
 
+            # d = datetime.strptime('0:29:59', '%H:%M:%S' )
+            # print(d, type(d))
+            # times = []
+
+            # # Two things to take into account:
+            # # 1.  The duration calculation
+            # #     Duration is met if end time - start time >= duration
+            # # 2.  The contiguous relationships between times
+            # #     Times are contiguous if end time = next start time
+
+            # n = 0
+            # m = n
+            # time_zero = datetime.strptime('00:00:00', '%H:%M:%S')
+            # print(time_zero, type(time_zero))
+            # while n < len(available_times['result']):
+            #     # s = datetime.strptime(available_times['result'][n]["appt_start"], '%H:%M:%S' ).time()
+            #     # e = datetime.strptime(available_times['result'][n]["appt_end"], '%H:%M:%S' ).time()
+            #     # print(s)
+            #     # print(e)
+            #     # DURATION TEST
+            #     while m < len(available_times['result']):
+            #         print(n)
+            #         print(m)
+            #         s = datetime.strptime(available_times['result'][n]["appt_start"], '%H:%M:%S' )
+            #         e = datetime.strptime(available_times['result'][m]["appt_end"], '%H:%M:%S' )
+            #         print(s, type(s))
+            #         print(e, type(e))
+            #         print((s - time_zero).time())
+            #         # print((s - time_zero + d).time())
+            #         # if (s -time_zero + d).time() <= e:
+            #         #     times.append(s).time()
+            #         #     continue
+            #     m = m + 1
+            # n = n + 1
+            # print(times)
+
+
+            # for appt in available_times['result']:
+            #     s = datetime.strptime(appt['appt_start'], '%H:%M:%S' ).time()
+            #     e = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
+            #     if s + d <= e:
+            #         times.append(appt['appt_start'])
+
+            # print(times)
+
+
+
+            # n = 0
+            # while n < len(available_times['result']):
+                
+
+
+
+            # 
+
+            # d = datetime.strptime('0:30:00', '%H:%M:%S' ).time()
+            # print(d, type(d))
+            # # duration = datetime(0:60:00)
+            # for appt in available_times['result']:
+            #     print(appt)
+            #     print(appt['appt_start'], type(appt['appt_start']))
+            #     print(appt['appt_end'], type(appt['appt_end']))
+            #     # x = appt['appt_end'] - appt['appt_start']
+            #     # print(x, type(x))
+            #     s = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
+            #     e = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
+                
+            #     print(s, type(s))
+            
+                # print(datetime.strptime(appt['appt_end']))
+                #  - datetime.strptime(appt['appt_start']))
+        
         except:
             raise BadRequest('Available Time Request failed, please try again later.')
         finally:
@@ -835,276 +1031,276 @@ class Calendar(Resource):
 
 
 
-class Calendar_original(Resource):
-    print("did it get here")
-    def get(self, treatment_uid, date_value):
-        response = {}
-        items = {}
-        modified_items = {}
-        # print(date_value)
-        # day_value = datetime.strptime(date_value, "%m-%d-%Y").weekday()
-        day_value = datetime.strptime(date_value, "%Y-%m-%d").weekday()
-        modified_date_value = date_value.replace("-", "/")
-        print(modified_date_value)
+# class Calendar_original(Resource):
+#     print("did it get here")
+#     def get(self, treatment_uid, date_value):
+#         response = {}
+#         items = {}
+#         modified_items = {}
+#         # print(date_value)
+#         # day_value = datetime.strptime(date_value, "%m-%d-%Y").weekday()
+#         day_value = datetime.strptime(date_value, "%Y-%m-%d").weekday()
+#         modified_date_value = date_value.replace("-", "/")
+#         print(modified_date_value)
 
-        day = calendar.day_name[day_value]
-        # print(day)
-        try:
-            # Connect to the DataBase
-            conn = connect()
-            query = (
-                """ # QUERY 1 
-                SELECT * FROM nitya.days WHERE day= \'"""
-                + day
-                + """\';"""
-            )
-            # The query is executed here
+#         day = calendar.day_name[day_value]
+#         # print(day)
+#         try:
+#             # Connect to the DataBase
+#             conn = connect()
+#             query = (
+#                 """ # QUERY 1 
+#                 SELECT * FROM nitya.days WHERE day= \'"""
+#                 + day
+#                 + """\';"""
+#             )
+#             # The query is executed here
 
-            query2 = (
-                """ # QUERY 2
-                SELECT * FROM appointments JOIN treatments on appt_treatment_uid = treatment_uid WHERE appt_date = \'"""
-                + modified_date_value
-                + """\';"""
-            )
+#             query2 = (
+#                 """ # QUERY 2
+#                 SELECT * FROM appointments JOIN treatments on appt_treatment_uid = treatment_uid WHERE appt_date = \'"""
+#                 + modified_date_value
+#                 + """\';"""
+#             )
 
-            query3 = (
-                """ # QUERY 3
-                SELECT * FROM nitya.practioner_availability  WHERE date = \'"""
-                + modified_date_value
-                + """\' ;"""
-            )
-            query4 = (
-                """ # QUERY 4
-                SELECT * FROM nitya.treatments WHERE treatment_uid= \'"""
-                + treatment_uid
-                + """\';"""
-            )
-            # The query is executed here
+#             query3 = (
+#                 """ # QUERY 3
+#                 SELECT * FROM nitya.practioner_availability  WHERE date = \'"""
+#                 + modified_date_value
+#                 + """\' ;"""
+#             )
+#             query4 = (
+#                 """ # QUERY 4
+#                 SELECT * FROM nitya.treatments WHERE treatment_uid= \'"""
+#                 + treatment_uid
+#                 + """\';"""
+#             )
+#             # The query is executed here
 
-            day_time_duration = execute(query, "get", conn)
-            booked_appointments = execute(query2, "get", conn)
+#             day_time_duration = execute(query, "get", conn)
+#             booked_appointments = execute(query2, "get", conn)
 
-            items = execute(query3, "get", conn)
+#             items = execute(query3, "get", conn)
 
-            treatment_duration = execute(query4, "get", conn)
+#             treatment_duration = execute(query4, "get", conn)
 
-            day_calculation = self.calculation_result(
-                day_time_duration,
-                items,
-                booked_appointments,
-                treatment_duration,
-                modified_date_value,
-                treatment_uid,
-                day,
-            )
+#             day_calculation = self.calculation_result(
+#                 day_time_duration,
+#                 items,
+#                 booked_appointments,
+#                 treatment_duration,
+#                 modified_date_value,
+#                 treatment_uid,
+#                 day,
+#             )
 
-            response["message"] = "successful"
-            response["result"] = day_calculation
-            # Returns code and response
-            return response, 200
-        except:
-            raise BadRequest("Request failed, please try again later.")
-        finally:
-            disconnect(conn)
+#             response["message"] = "successful"
+#             response["result"] = day_calculation
+#             # Returns code and response
+#             return response, 200
+#         except:
+#             raise BadRequest("Request failed, please try again later.")
+#         finally:
+#             disconnect(conn)
 
-    def gethalfhourtimeslots(self, st, et):
-        l = []
-        while st < et:
-            l.append(st.time())
-            st = st + timedelta(minutes=30)
-        return l
+#     def gethalfhourtimeslots(self, st, et):
+#         l = []
+#         while st < et:
+#             l.append(st.time())
+#             st = st + timedelta(minutes=30)
+#         return l
 
-    def diff_list(self, li1, li2):
-        return list(list(set(li1) - set(li2)))
+#     def diff_list(self, li1, li2):
+#         return list(list(set(li1) - set(li2)))
 
-    def calculation_result(
-        self,
-        day_time_duration,
-        items,
-        booked_appointments,
-        treatment_duration,
-        modified_date_value,
-        treatment_uid,
-        day,
-    ):
-        morning_timeslots = []
-        afternoon_timeslots = []
-        not_available_timeslots = []
-        booked_appointment_slots = []
-        treatment_id_timeslots = []
-        result = {}
+#     def calculation_result(
+#         self,
+#         day_time_duration,
+#         items,
+#         booked_appointments,
+#         treatment_duration,
+#         modified_date_value,
+#         treatment_uid,
+#         day,
+#     ):
+#         morning_timeslots = []
+#         afternoon_timeslots = []
+#         not_available_timeslots = []
+#         booked_appointment_slots = []
+#         treatment_id_timeslots = []
+#         result = {}
 
-        # print("Inside calculation_result")
-        # print(day_time_duration['result'])
-        # print(items['result'])
+#         # print("Inside calculation_result")
+#         # print(day_time_duration['result'])
+#         # print(items['result'])
 
-        for obj in day_time_duration["result"]:
-            morning_start_time = obj["morning_start_time"]
-            morning_end_time = obj["morning_end_time"]
-            afternoon_start_time = obj["afternoon_start_time"]
-            afternoon_end_time = obj["afternoon_end_time"]
+#         for obj in day_time_duration["result"]:
+#             morning_start_time = obj["morning_start_time"]
+#             morning_end_time = obj["morning_end_time"]
+#             afternoon_start_time = obj["afternoon_start_time"]
+#             afternoon_end_time = obj["afternoon_end_time"]
 
-            if morning_start_time != None and morning_end_time != None:
-                m_st = time(
-                    hour=int(morning_start_time.split(":")[0]),
-                    minute=int(morning_start_time.split(":")[1]),
-                    second=int(morning_start_time.split(":")[2]),
-                )
-                m_et = time(
-                    hour=int(morning_end_time.split(":")[0]),
-                    minute=int(morning_end_time.split(":")[1]),
-                    second=int(morning_end_time.split(":")[2]),
-                )
-                m_st = datetime.combine(date.today(), m_st)
-                m_et = datetime.combine(date.today(), m_et)
-                morning_timeslots = self.gethalfhourtimeslots(m_st, m_et)
-                # print("morning_timeslots")
-                # print(morning_timeslots)
+#             if morning_start_time != None and morning_end_time != None:
+#                 m_st = time(
+#                     hour=int(morning_start_time.split(":")[0]),
+#                     minute=int(morning_start_time.split(":")[1]),
+#                     second=int(morning_start_time.split(":")[2]),
+#                 )
+#                 m_et = time(
+#                     hour=int(morning_end_time.split(":")[0]),
+#                     minute=int(morning_end_time.split(":")[1]),
+#                     second=int(morning_end_time.split(":")[2]),
+#                 )
+#                 m_st = datetime.combine(date.today(), m_st)
+#                 m_et = datetime.combine(date.today(), m_et)
+#                 morning_timeslots = self.gethalfhourtimeslots(m_st, m_et)
+#                 # print("morning_timeslots")
+#                 # print(morning_timeslots)
 
-            if len(afternoon_start_time) != 0 and len(afternoon_end_time) != 0:
-                # print(len(afternoon_start_time), len(afternoon_end_time))
-                a_st = time(
-                    hour=int(afternoon_start_time.split(":")[0]),
-                    minute=int(afternoon_start_time.split(":")[1]),
-                    second=int(afternoon_start_time.split(":")[2]),
-                )
-                a_et = time(
-                    hour=int(afternoon_end_time.split(":")[0]),
-                    minute=int(afternoon_end_time.split(":")[1]),
-                    second=int(afternoon_end_time.split(":")[2]),
-                )
-                a_st = datetime.combine(date.today(), a_st)
-                a_et = datetime.combine(date.today(), a_et)
-                afternoon_timeslots = self.gethalfhourtimeslots(a_st, a_et)
-                # print("afternoon_timeslots")
-                # print(afternoon_timeslots)
+#             if len(afternoon_start_time) != 0 and len(afternoon_end_time) != 0:
+#                 # print(len(afternoon_start_time), len(afternoon_end_time))
+#                 a_st = time(
+#                     hour=int(afternoon_start_time.split(":")[0]),
+#                     minute=int(afternoon_start_time.split(":")[1]),
+#                     second=int(afternoon_start_time.split(":")[2]),
+#                 )
+#                 a_et = time(
+#                     hour=int(afternoon_end_time.split(":")[0]),
+#                     minute=int(afternoon_end_time.split(":")[1]),
+#                     second=int(afternoon_end_time.split(":")[2]),
+#                 )
+#                 a_st = datetime.combine(date.today(), a_st)
+#                 a_et = datetime.combine(date.today(), a_et)
+#                 afternoon_timeslots = self.gethalfhourtimeslots(a_st, a_et)
+#                 # print("afternoon_timeslots")
+#                 # print(afternoon_timeslots)
 
-        # print("total timeslots")
-        total_timeslots = morning_timeslots + afternoon_timeslots
-        # print(total_timeslots)
-        # print("At the end of calculation_result")
+#         # print("total timeslots")
+#         total_timeslots = morning_timeslots + afternoon_timeslots
+#         # print(total_timeslots)
+#         # print("At the end of calculation_result")
 
-        for obj in items["result"]:
-            print("inside items")
-            start_time_notavailable = obj["start_time_notavailable"]
-            end_time_notavailable = obj["end_time_notavailable"]
-            # print(start_time_notavailable)
-            # print(end_time_notavailable)
-            if start_time_notavailable != None and end_time_notavailable != None:
-                st_na = time(
-                    hour=int(start_time_notavailable.split(":")[0]),
-                    minute=int(start_time_notavailable.split(":")[1]),
-                    second=int(start_time_notavailable.split(":")[2]),
-                )
-                et_na = time(
-                    hour=int(end_time_notavailable.split(":")[0]),
-                    minute=int(end_time_notavailable.split(":")[1]),
-                    second=int(end_time_notavailable.split(":")[2]),
-                )
-                st_na = datetime.combine(date.today(), st_na)
-                et_na = datetime.combine(date.today(), et_na)
+#         for obj in items["result"]:
+#             print("inside items")
+#             start_time_notavailable = obj["start_time_notavailable"]
+#             end_time_notavailable = obj["end_time_notavailable"]
+#             # print(start_time_notavailable)
+#             # print(end_time_notavailable)
+#             if start_time_notavailable != None and end_time_notavailable != None:
+#                 st_na = time(
+#                     hour=int(start_time_notavailable.split(":")[0]),
+#                     minute=int(start_time_notavailable.split(":")[1]),
+#                     second=int(start_time_notavailable.split(":")[2]),
+#                 )
+#                 et_na = time(
+#                     hour=int(end_time_notavailable.split(":")[0]),
+#                     minute=int(end_time_notavailable.split(":")[1]),
+#                     second=int(end_time_notavailable.split(":")[2]),
+#                 )
+#                 st_na = datetime.combine(date.today(), st_na)
+#                 et_na = datetime.combine(date.today(), et_na)
 
-                if not not_available_timeslots:
-                    not_available_timeslots = self.gethalfhourtimeslots(st_na, et_na)
-                else:
-                    not_available_timeslots = not_available_timeslots + (
-                        self.gethalfhourtimeslots(st_na, et_na)
-                    )
+#                 if not not_available_timeslots:
+#                     not_available_timeslots = self.gethalfhourtimeslots(st_na, et_na)
+#                 else:
+#                     not_available_timeslots = not_available_timeslots + (
+#                         self.gethalfhourtimeslots(st_na, et_na)
+#                     )
 
-        # print(not_available_timeslots)
+#         # print(not_available_timeslots)
 
-        for obj in booked_appointments["result"]:
-            # print(booked_appointments['result'])
-            appt_start_time = obj["appt_time"]
-            duration = obj["duration"]
-            if appt_start_time != None and duration != None:
-                appt_start_time = time(
-                    hour=int(appt_start_time.split(":")[0]),
-                    minute=int(appt_start_time.split(":")[1]),
-                    second=int(appt_start_time.split(":")[2]),
-                )
-                duration = timedelta(
-                    hours=int(duration.split(":")[0]),
-                    minutes=int(duration.split(":")[1]),
-                    seconds=int(duration.split(":")[2]),
-                )
-                appt_start_time = datetime.combine(date.today(), appt_start_time)
-                # print(appt_start_time)
-                # print(duration)
-                appt_end_time = appt_start_time + duration
-                # print("End time")
-                # print(appt_end_time)
-                if not booked_appointment_slots:
-                    booked_appointment_slots = self.gethalfhourtimeslots(
-                        appt_start_time, appt_end_time
-                    )
-                else:
-                    booked_appointment_slots = booked_appointment_slots + (
-                        self.gethalfhourtimeslots(appt_start_time, appt_end_time)
-                    )
-            # print("booked_appointments")
-            # print(booked_appointment_slots)
+#         for obj in booked_appointments["result"]:
+#             # print(booked_appointments['result'])
+#             appt_start_time = obj["appt_time"]
+#             duration = obj["duration"]
+#             if appt_start_time != None and duration != None:
+#                 appt_start_time = time(
+#                     hour=int(appt_start_time.split(":")[0]),
+#                     minute=int(appt_start_time.split(":")[1]),
+#                     second=int(appt_start_time.split(":")[2]),
+#                 )
+#                 duration = timedelta(
+#                     hours=int(duration.split(":")[0]),
+#                     minutes=int(duration.split(":")[1]),
+#                     seconds=int(duration.split(":")[2]),
+#                 )
+#                 appt_start_time = datetime.combine(date.today(), appt_start_time)
+#                 # print(appt_start_time)
+#                 # print(duration)
+#                 appt_end_time = appt_start_time + duration
+#                 # print("End time")
+#                 # print(appt_end_time)
+#                 if not booked_appointment_slots:
+#                     booked_appointment_slots = self.gethalfhourtimeslots(
+#                         appt_start_time, appt_end_time
+#                     )
+#                 else:
+#                     booked_appointment_slots = booked_appointment_slots + (
+#                         self.gethalfhourtimeslots(appt_start_time, appt_end_time)
+#                     )
+#             # print("booked_appointments")
+#             # print(booked_appointment_slots)
 
-        available_timeslots_calculation = self.diff_list(
-            total_timeslots, not_available_timeslots
-        )
-        # print(available_timeslots_calculation)
-        total_available_timeslots = self.diff_list(
-            available_timeslots_calculation, booked_appointment_slots
-        )
+#         available_timeslots_calculation = self.diff_list(
+#             total_timeslots, not_available_timeslots
+#         )
+#         # print(available_timeslots_calculation)
+#         total_available_timeslots = self.diff_list(
+#             available_timeslots_calculation, booked_appointment_slots
+#         )
 
-        # print("Available timeslots for a day")
-        total_available_timeslots.sort()
-        # print(total_available_timeslots)
+#         # print("Available timeslots for a day")
+#         total_available_timeslots.sort()
+#         # print(total_available_timeslots)
 
-        for obj in treatment_duration["result"]:
-            t_duration = obj["duration"]
-            t_duration_min = int(t_duration.split(":")[0]) * 60 + int(
-                t_duration.split(":")[1]
-            )
-            t_duration_roundoff = int(t_duration_min / 30) * 30 + (
-                30 if t_duration_min % 30 != 0 else 0
-            )
-            num_minutes = timedelta(minutes=t_duration_roundoff)
-            num_30_slots = int(t_duration_roundoff / 30)
-            # print("Total Minutes")
-            # print(num_minutes)
-            # print(num_30_slots)
+#         for obj in treatment_duration["result"]:
+#             t_duration = obj["duration"]
+#             t_duration_min = int(t_duration.split(":")[0]) * 60 + int(
+#                 t_duration.split(":")[1]
+#             )
+#             t_duration_roundoff = int(t_duration_min / 30) * 30 + (
+#                 30 if t_duration_min % 30 != 0 else 0
+#             )
+#             num_minutes = timedelta(minutes=t_duration_roundoff)
+#             num_30_slots = int(t_duration_roundoff / 30)
+#             # print("Total Minutes")
+#             # print(num_minutes)
+#             # print(num_30_slots)
 
-        for s_time in total_available_timeslots:
-            # print(s_time)
-            s_time = datetime.combine(date.today(), s_time)
-            dont_use_s_time = 0
-            for i in range(1, num_30_slots):
-                # print(i)
-                # print(s_time + timedelta(minutes=30*i))
-                if (
-                    (s_time + timedelta(minutes=30 * i)).time()
-                ) not in total_available_timeslots:
-                    dont_use_s_time = 1
-                    continue
-            if dont_use_s_time == 0:
-                treatment_id_timeslots.append(s_time.time())
+#         for s_time in total_available_timeslots:
+#             # print(s_time)
+#             s_time = datetime.combine(date.today(), s_time)
+#             dont_use_s_time = 0
+#             for i in range(1, num_30_slots):
+#                 # print(i)
+#                 # print(s_time + timedelta(minutes=30*i))
+#                 if (
+#                     (s_time + timedelta(minutes=30 * i)).time()
+#                 ) not in total_available_timeslots:
+#                     dont_use_s_time = 1
+#                     continue
+#             if dont_use_s_time == 0:
+#                 treatment_id_timeslots.append(s_time.time())
 
-        temp_list = []
-        for t in treatment_id_timeslots:
-            # print(t.strftime("%H:%M:%S"))
-            temp_list.append(t.strftime("%H:%M:%S"))
+#         temp_list = []
+#         for t in treatment_id_timeslots:
+#             # print(t.strftime("%H:%M:%S"))
+#             temp_list.append(t.strftime("%H:%M:%S"))
 
-        result["date"] = modified_date_value
-        result["day"] = day
-        result["treatment_uid"] = treatment_uid
-        result["available_timeslots"] = temp_list
-        """temp_list =[]   
-        for t in total_available_timeslots:
-            #print(t.strftime("%H:%M:%S"))
-            temp_list.append(t.strftime("%H:%M:%S"))
-        result["pre_available_timeslots"] = temp_list"""
-        result["treatment_duration"] = t_duration_min
+#         result["date"] = modified_date_value
+#         result["day"] = day
+#         result["treatment_uid"] = treatment_uid
+#         result["available_timeslots"] = temp_list
+#         """temp_list =[]   
+#         for t in total_available_timeslots:
+#             #print(t.strftime("%H:%M:%S"))
+#             temp_list.append(t.strftime("%H:%M:%S"))
+#         result["pre_available_timeslots"] = temp_list"""
+#         result["treatment_duration"] = t_duration_min
 
-        return result
+#         return result
 
-# --------------
+# # --------------
 
 
 
@@ -1615,7 +1811,7 @@ api.add_resource(CreateAppointment, "/api/v2/createAppointment")
 api.add_resource(AddTreatment, "/api/v2/addTreatment")
 api.add_resource(AddBlog, "/api/v2/addBlog")
 api.add_resource(Calendar, "/api/v2/calendar/<string:date_value>")
-# api.add_resource(Calendar, "/api/v2/calendar/<string:treatment_uid>/<string:date_value>")
+api.add_resource(AvailableAppointments, "/api/v2/availableAppointments/<string:date_value>/<string:duration>")
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
