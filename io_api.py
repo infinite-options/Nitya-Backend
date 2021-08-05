@@ -341,12 +341,13 @@ class Promotions(Resource):
 
             promotions = execute(query, 'get', conn)
             print("Promotion Table Response: ", str(promotions['result']))
-            print("Promotion Status: ", str(promotions['result'][0]['promotion_status']))
+            new_status = str(promotions['result'][0]['promotion_status'])
+            print("Promotion Status: ", new_status)
             print(len(promotions['result']))
 
             # print("Available Times: ", str(available_times['result'][0]["start_time"]))
 
-            return promotions['result'][0]['promotion_status']
+            return new_status
         
         
         except:
