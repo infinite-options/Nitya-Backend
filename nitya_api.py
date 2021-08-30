@@ -341,7 +341,6 @@ class appointments(Resource):
         # ENDPOINT THAT WORKS
         # http://localhost:4000/api/v2/appointments
 
-
 class OneCustomerAppointments(Resource):
     def get(self, customer_uid):
         response = {}
@@ -394,9 +393,6 @@ class treatments(Resource):
 
         # http://localhost:4000/api/v2/treatments
 
-
-
-
 class FullBlog(Resource):
     def get(self, blog_id):
         response = {}
@@ -420,7 +416,6 @@ class FullBlog(Resource):
         finally:
             disconnect(conn)
 
-
 class TruncatedBlog(Resource):
     def get(self):
         response = {}
@@ -440,7 +435,6 @@ class TruncatedBlog(Resource):
             raise BadRequest("Specific Blog Request failed, please try again later.")
         finally:
             disconnect(conn)
-
 
 class CreateAppointment(Resource):
     def post(self):
@@ -569,7 +563,6 @@ class CreateAppointment(Resource):
         # ENDPOINT AND JSON OBJECT THAT WORKS
         # http://localhost:4000/api/v2/createappointment
 
-
 class AddTreatment(Resource):
     def post(self):
         response = {}
@@ -627,7 +620,6 @@ class AddTreatment(Resource):
         finally:
             disconnect(conn)
 
-
 class AddBlog(Resource):
     def post(self):
         response = {}
@@ -682,7 +674,6 @@ class AddBlog(Resource):
         finally:
             disconnect(conn)
 
-
 class AddContact(Resource):
     def post(self):
         response = {}
@@ -724,7 +715,6 @@ class AddContact(Resource):
             raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
-
 
 class purchaseDetails(Resource):
     # QUERY 1 RETURNS ALL BUSINESSES
@@ -1029,280 +1019,43 @@ class Calendar(Resource):
             disconnect(conn)
 
 
+# ACCOUNT QUERIES
+class findCustomerUID(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
 
-
-# class Calendar_original(Resource):
-#     print("did it get here")
-#     def get(self, treatment_uid, date_value):
-#         response = {}
-#         items = {}
-#         modified_items = {}
-#         # print(date_value)
-#         # day_value = datetime.strptime(date_value, "%m-%d-%Y").weekday()
-#         day_value = datetime.strptime(date_value, "%Y-%m-%d").weekday()
-#         modified_date_value = date_value.replace("-", "/")
-#         print(modified_date_value)
-
-#         day = calendar.day_name[day_value]
-#         # print(day)
-#         try:
-#             # Connect to the DataBase
-#             conn = connect()
-#             query = (
-#                 """ # QUERY 1 
-#                 SELECT * FROM nitya.days WHERE day= \'"""
-#                 + day
-#                 + """\';"""
-#             )
-#             # The query is executed here
-
-#             query2 = (
-#                 """ # QUERY 2
-#                 SELECT * FROM appointments JOIN treatments on appt_treatment_uid = treatment_uid WHERE appt_date = \'"""
-#                 + modified_date_value
-#                 + """\';"""
-#             )
-
-#             query3 = (
-#                 """ # QUERY 3
-#                 SELECT * FROM nitya.practioner_availability  WHERE date = \'"""
-#                 + modified_date_value
-#                 + """\' ;"""
-#             )
-#             query4 = (
-#                 """ # QUERY 4
-#                 SELECT * FROM nitya.treatments WHERE treatment_uid= \'"""
-#                 + treatment_uid
-#                 + """\';"""
-#             )
-#             # The query is executed here
-
-#             day_time_duration = execute(query, "get", conn)
-#             booked_appointments = execute(query2, "get", conn)
-
-#             items = execute(query3, "get", conn)
-
-#             treatment_duration = execute(query4, "get", conn)
-
-#             day_calculation = self.calculation_result(
-#                 day_time_duration,
-#                 items,
-#                 booked_appointments,
-#                 treatment_duration,
-#                 modified_date_value,
-#                 treatment_uid,
-#                 day,
-#             )
-
-#             response["message"] = "successful"
-#             response["result"] = day_calculation
-#             # Returns code and response
-#             return response, 200
-#         except:
-#             raise BadRequest("Request failed, please try again later.")
-#         finally:
-#             disconnect(conn)
-
-#     def gethalfhourtimeslots(self, st, et):
-#         l = []
-#         while st < et:
-#             l.append(st.time())
-#             st = st + timedelta(minutes=30)
-#         return l
-
-#     def diff_list(self, li1, li2):
-#         return list(list(set(li1) - set(li2)))
-
-#     def calculation_result(
-#         self,
-#         day_time_duration,
-#         items,
-#         booked_appointments,
-#         treatment_duration,
-#         modified_date_value,
-#         treatment_uid,
-#         day,
-#     ):
-#         morning_timeslots = []
-#         afternoon_timeslots = []
-#         not_available_timeslots = []
-#         booked_appointment_slots = []
-#         treatment_id_timeslots = []
-#         result = {}
-
-#         # print("Inside calculation_result")
-#         # print(day_time_duration['result'])
-#         # print(items['result'])
-
-#         for obj in day_time_duration["result"]:
-#             morning_start_time = obj["morning_start_time"]
-#             morning_end_time = obj["morning_end_time"]
-#             afternoon_start_time = obj["afternoon_start_time"]
-#             afternoon_end_time = obj["afternoon_end_time"]
-
-#             if morning_start_time != None and morning_end_time != None:
-#                 m_st = time(
-#                     hour=int(morning_start_time.split(":")[0]),
-#                     minute=int(morning_start_time.split(":")[1]),
-#                     second=int(morning_start_time.split(":")[2]),
-#                 )
-#                 m_et = time(
-#                     hour=int(morning_end_time.split(":")[0]),
-#                     minute=int(morning_end_time.split(":")[1]),
-#                     second=int(morning_end_time.split(":")[2]),
-#                 )
-#                 m_st = datetime.combine(date.today(), m_st)
-#                 m_et = datetime.combine(date.today(), m_et)
-#                 morning_timeslots = self.gethalfhourtimeslots(m_st, m_et)
-#                 # print("morning_timeslots")
-#                 # print(morning_timeslots)
-
-#             if len(afternoon_start_time) != 0 and len(afternoon_end_time) != 0:
-#                 # print(len(afternoon_start_time), len(afternoon_end_time))
-#                 a_st = time(
-#                     hour=int(afternoon_start_time.split(":")[0]),
-#                     minute=int(afternoon_start_time.split(":")[1]),
-#                     second=int(afternoon_start_time.split(":")[2]),
-#                 )
-#                 a_et = time(
-#                     hour=int(afternoon_end_time.split(":")[0]),
-#                     minute=int(afternoon_end_time.split(":")[1]),
-#                     second=int(afternoon_end_time.split(":")[2]),
-#                 )
-#                 a_st = datetime.combine(date.today(), a_st)
-#                 a_et = datetime.combine(date.today(), a_et)
-#                 afternoon_timeslots = self.gethalfhourtimeslots(a_st, a_et)
-#                 # print("afternoon_timeslots")
-#                 # print(afternoon_timeslots)
-
-#         # print("total timeslots")
-#         total_timeslots = morning_timeslots + afternoon_timeslots
-#         # print(total_timeslots)
-#         # print("At the end of calculation_result")
-
-#         for obj in items["result"]:
-#             print("inside items")
-#             start_time_notavailable = obj["start_time_notavailable"]
-#             end_time_notavailable = obj["end_time_notavailable"]
-#             # print(start_time_notavailable)
-#             # print(end_time_notavailable)
-#             if start_time_notavailable != None and end_time_notavailable != None:
-#                 st_na = time(
-#                     hour=int(start_time_notavailable.split(":")[0]),
-#                     minute=int(start_time_notavailable.split(":")[1]),
-#                     second=int(start_time_notavailable.split(":")[2]),
-#                 )
-#                 et_na = time(
-#                     hour=int(end_time_notavailable.split(":")[0]),
-#                     minute=int(end_time_notavailable.split(":")[1]),
-#                     second=int(end_time_notavailable.split(":")[2]),
-#                 )
-#                 st_na = datetime.combine(date.today(), st_na)
-#                 et_na = datetime.combine(date.today(), et_na)
-
-#                 if not not_available_timeslots:
-#                     not_available_timeslots = self.gethalfhourtimeslots(st_na, et_na)
-#                 else:
-#                     not_available_timeslots = not_available_timeslots + (
-#                         self.gethalfhourtimeslots(st_na, et_na)
-#                     )
-
-#         # print(not_available_timeslots)
-
-#         for obj in booked_appointments["result"]:
-#             # print(booked_appointments['result'])
-#             appt_start_time = obj["appt_time"]
-#             duration = obj["duration"]
-#             if appt_start_time != None and duration != None:
-#                 appt_start_time = time(
-#                     hour=int(appt_start_time.split(":")[0]),
-#                     minute=int(appt_start_time.split(":")[1]),
-#                     second=int(appt_start_time.split(":")[2]),
-#                 )
-#                 duration = timedelta(
-#                     hours=int(duration.split(":")[0]),
-#                     minutes=int(duration.split(":")[1]),
-#                     seconds=int(duration.split(":")[2]),
-#                 )
-#                 appt_start_time = datetime.combine(date.today(), appt_start_time)
-#                 # print(appt_start_time)
-#                 # print(duration)
-#                 appt_end_time = appt_start_time + duration
-#                 # print("End time")
-#                 # print(appt_end_time)
-#                 if not booked_appointment_slots:
-#                     booked_appointment_slots = self.gethalfhourtimeslots(
-#                         appt_start_time, appt_end_time
-#                     )
-#                 else:
-#                     booked_appointment_slots = booked_appointment_slots + (
-#                         self.gethalfhourtimeslots(appt_start_time, appt_end_time)
-#                     )
-#             # print("booked_appointments")
-#             # print(booked_appointment_slots)
-
-#         available_timeslots_calculation = self.diff_list(
-#             total_timeslots, not_available_timeslots
-#         )
-#         # print(available_timeslots_calculation)
-#         total_available_timeslots = self.diff_list(
-#             available_timeslots_calculation, booked_appointment_slots
-#         )
-
-#         # print("Available timeslots for a day")
-#         total_available_timeslots.sort()
-#         # print(total_available_timeslots)
-
-#         for obj in treatment_duration["result"]:
-#             t_duration = obj["duration"]
-#             t_duration_min = int(t_duration.split(":")[0]) * 60 + int(
-#                 t_duration.split(":")[1]
-#             )
-#             t_duration_roundoff = int(t_duration_min / 30) * 30 + (
-#                 30 if t_duration_min % 30 != 0 else 0
-#             )
-#             num_minutes = timedelta(minutes=t_duration_roundoff)
-#             num_30_slots = int(t_duration_roundoff / 30)
-#             # print("Total Minutes")
-#             # print(num_minutes)
-#             # print(num_30_slots)
-
-#         for s_time in total_available_timeslots:
-#             # print(s_time)
-#             s_time = datetime.combine(date.today(), s_time)
-#             dont_use_s_time = 0
-#             for i in range(1, num_30_slots):
-#                 # print(i)
-#                 # print(s_time + timedelta(minutes=30*i))
-#                 if (
-#                     (s_time + timedelta(minutes=30 * i)).time()
-#                 ) not in total_available_timeslots:
-#                     dont_use_s_time = 1
-#                     continue
-#             if dont_use_s_time == 0:
-#                 treatment_id_timeslots.append(s_time.time())
-
-#         temp_list = []
-#         for t in treatment_id_timeslots:
-#             # print(t.strftime("%H:%M:%S"))
-#             temp_list.append(t.strftime("%H:%M:%S"))
-
-#         result["date"] = modified_date_value
-#         result["day"] = day
-#         result["treatment_uid"] = treatment_uid
-#         result["available_timeslots"] = temp_list
-#         """temp_list =[]   
-#         for t in total_available_timeslots:
-#             #print(t.strftime("%H:%M:%S"))
-#             temp_list.append(t.strftime("%H:%M:%S"))
-#         result["pre_available_timeslots"] = temp_list"""
-#         result["treatment_duration"] = t_duration_min
-
-#         return result
-
-# # --------------
-
-
+            data = request.get_json(force=True)
+            print(data)
+            phone = data["phone_num"]
+            email = data["email"]
+            query = (
+                """
+                    # QUERY 5
+                    # GET CUSTOMER UID FROM PHONE NUMBER OR EMAIL
+                    SELECT customer_uid,
+                        customer_phone_num,
+                        customer_email
+                    FROM nitya.customers 
+                    WHERE customer_phone_num = \'""" + phone + """\'
+                        OR customer_email = \'""" + email + """\';
+                """
+            )
+            items = execute(query, "get", conn)
+            print(items)
+            if not items["result"]:
+                items["message"] = "Email and Phone Number do not exist"
+                items["code"] = 404
+                return items
+            items["message"] = "Customer Found"
+            items["code"] = 200
+            return items
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
 
 class createAccount(Resource):
     def post(self):
@@ -1655,7 +1408,6 @@ class AccountSalt(Resource):
         finally:
             disconnect(conn)
 
-
 class Login(Resource):
     def post(self):
         response = {}
@@ -1815,6 +1567,7 @@ api.add_resource(AvailableAppointments, "/api/v2/availableAppointments/<string:d
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
+api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
 api.add_resource(Login, "/api/v2/Login/")
