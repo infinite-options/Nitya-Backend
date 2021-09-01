@@ -444,8 +444,9 @@ class CreateAppointment(Resource):
         try:
             conn = connect()
             data = request.get_json(force=True)
-            # print to Received data to Terminal
-            # print("Received:", data)
+            print("Received:", data)
+
+             #  GET CUSTOMER APPOINTMENT INFO
             first_name = data["first_name"]
             last_name = data["last_name"]
             email = data["email"]
@@ -456,7 +457,9 @@ class CreateAppointment(Resource):
             timevalue = data["appt_time"]
             purchase_price = data["purchase_price"]
             purchase_date = data["purchase_date"]
+           
 
+            #  PRINT CUSTOMER APPOINTMENT INFO
             print("first_name", first_name)
             print("last_name", last_name)
             print("email", email)
@@ -468,6 +471,7 @@ class CreateAppointment(Resource):
             print("purchase_price", purchase_price)
             print("purchase_date", purchase_date)
 
+            #  CREATE CUSTOMER APPOINTMENT UID
             # Query [0]  Get New UID
             # query = ["CALL new_refund_uid;"]
             query = ["CALL nitya.new_appointment_uid;"]
@@ -476,12 +480,11 @@ class CreateAppointment(Resource):
             print("NewID = ", NewID)
             # NewID is an Array and new_id is the first element in that array
 
+            #  FIND EXISTING CUSTOMER UID
             query1 = (
                 """ 
                     SELECT customer_uid FROM nitya.customers 
-                    WHERE customer_first_name = \'""" + first_name + """\' 
-                    AND   customer_last_name = \'""" + last_name + """\' 
-                    AND   customer_email = \'""" + email + """\' 
+                    WHERE customer_email = \'""" + email + """\' 
                     AND   customer_phone_num = \'""" + phone_no + """\';
                 """
             )
@@ -493,63 +496,44 @@ class CreateAppointment(Resource):
 
             print(len(cus_id["result"]))
 
+            #  FOR NEW CUSTOMERS - CREATE NEW CUSTOMER UID AND INSERT INTO CUSTOMER TABLE
             if len(cus_id["result"]) == 0:
                 query = ["CALL nitya.new_customer_uid;"]
                 NewIDresponse = execute(query[0], "get", conn)
                 NewcustomerID = NewIDresponse["result"][0]["new_id"]
-                customer_insert_query = (
+
+                customer_insert_query = """
+                    INSERT INTO nitya.customers
+                    SET customer_uid = \'""" + NewcustomerID + """\',
+                        customer_first_name = \'""" + first_name + """\',
+                        customer_last_name = \'""" + last_name + """\',
+                        customer_phone_num = \'""" + phone_no + """\',
+                        customer_email = \'""" + email + """\'
                     """
-                        INSERT INTO nitya.customers 
-                        (
-                            customer_uid,
-                            customer_first_name,
-                            customer_last_name,
-                            customer_phone_num,
-                            customer_email
-                        )
-                        VALUES
-                        (
-                            \'""" + NewcustomerID + """\',
-                            \'""" + first_name + """\',
-                            \'""" + last_name + """\',
-                            \'""" + phone_no + """\',
-                            \'""" + email + """\'
-                        );
-                    """
-                )
 
                 customer_items = execute(customer_insert_query, "post", conn)
                 print("NewcustomerID=", NewcustomerID)
+
+            #  FOR EXISTING CUSTOMERS - USE EXISTING CUSTOMER UID
             else:
                 for obj in cus_id["result"]:
                     NewcustomerID = obj["customer_uid"]
                     print("customerID = ", NewcustomerID)
 
             #  convert to new format:  payment_time_stamp = \'''' + getNow() + '''\',
-            query2 = (
-                """
-                    INSERT INTO appointments
-                    (   appointment_uid
-                        , appt_customer_uid
-                        , appt_treatment_uid
-                        , notes
-                        , appt_date
-                        , appt_time
-                        , purchase_price
-                        , purchase_date
-                    ) 
-                    VALUES
-                    (     \'""" + NewID + """\'
-                        ,\'""" + NewcustomerID + """\'
-                        ,\'""" + treatment_uid + """\'
-                        ,\'""" + notes + """\'
-                        ,\'""" + datevalue + """\'
-                        ,\'""" + timevalue + """\'
-                        ,\'""" + purchase_price + """\'
-                        ,\'""" + purchase_date + """\'
-                    );
-                """
-            )
+
+            #  INSERT INTO APPOINTMENTS TABLE
+            query2 = """
+                    INSERT INTO nitya.appointments
+                    SET appointment_uid = \'""" + NewID + """\',
+                        appt_customer_uid = \'""" + NewcustomerID + """\',
+                        appt_treatment_uid = \'""" + treatment_uid + """\',
+                        notes = \'""" + str(notes) + """\',
+                        appt_date = \'""" + datevalue + """\',
+                        appt_time = \'""" + timevalue + """\',
+                        purchase_price = \'""" + purchase_price + """\',
+                        purchase_date = \'""" + purchase_date + """\'
+                    """
             items = execute(query2, "post", conn)
 
             response["message"] = "Appointments Post successful"
@@ -561,7 +545,7 @@ class CreateAppointment(Resource):
             disconnect(conn)
 
         # ENDPOINT AND JSON OBJECT THAT WORKS
-        # http://localhost:4000/api/v2/createappointment
+        # http://localhost:4000/api/v2/createappointment            
 
 class AddTreatment(Resource):
     def post(self):
