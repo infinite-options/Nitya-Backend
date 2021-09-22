@@ -27,7 +27,7 @@ import random
 import string
 import stripe
 
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, url_for
 from flask_restful import Resource, Api
 from flask_cors import CORS
 from flask_mail import Mail, Message
@@ -119,6 +119,11 @@ app.config["MAIL_PORT"] = 465
 # Setting for gmail
 # app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 # app.config['MAIL_PORT'] = 465
+
+app.config['MAIL_USERNAME'] = 'support@manifestmy.space'
+app.config['MAIL_PASSWORD'] = 'Support4MySpace'
+app.config['MAIL_DEFAULT_SENDER'] = 'support@manifestmy.space'
+
 
 app.config["MAIL_USE_TLS"] = False
 app.config["MAIL_USE_SSL"] = True
@@ -320,13 +325,15 @@ def get_new_appointmentUID(conn):
 
 # PROMOTION ENDPOINTS
 class Promotions(Resource):
-    def get(self):
+    def post(self):
         print("\nInside Get Promotions")
         
         response = {}
         items = {}
         try:
+            print("AWS 1")
             conn = connect()
+            print("AWS 2")
             data = request.get_json(force=True)
             print("Received:", data)
 
@@ -355,6 +362,7 @@ class Promotions(Resource):
         finally:
             disconnect(conn)
 
+
     def put(self):
         print("\nInside Put Promotions")
         
@@ -368,7 +376,7 @@ class Promotions(Resource):
             io_business_name = data["name"]
             print("name", io_business_name)
             promotion_status = data["status"]
-            print("name", promotion_status)
+            print("status", promotion_status)
 
             # DETERMINE IF THERE IS A PROMOTION
             query = """
@@ -557,7 +565,63 @@ class AddContact(Resource):
         finally:
             disconnect(conn)
 
+# SEND EMAIL
+class SendEmail(Resource):
+    def post(self):
 
+        try:
+            conn = connect()
+
+            data = request.get_json(force=True)
+            # print(data)
+            email = data['email']
+            # query = """
+            #         SELECT password_hashed
+            #         FROM M4ME.customers c
+            #         WHERE customer_email = \'""" + email + """\'
+            #         """
+            # items = execute(query, 'get', conn)
+            # print(items)
+            # if not items['result']:
+
+            #     items['message'] = "Customer email doesn't exists"
+            #     items['code'] = 404
+            #     return items
+            # if items['result'][0]['password_hashed'] == '':
+            #     items['message'] = "Customer password doesn't exists"
+            #     items['code'] = 405
+            #     return items
+
+            # token = s.dumps(email)
+            # print(token)
+            # password = items['result'][0]['password_hashed']
+            # print(password)
+            msg = Message("Email Verification", sender='support@mealsfor.me', recipients=[email])
+            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
+            msg.body = "Hi !\n\n"\
+            "We are looking forward to meeting with you! \n"\
+            "Email support@servingfresh.me if you run into any problems or have any questions.\n" \
+            "Thx - The Serving Fresh Team\n\n" 
+            # print('msg-bd----', msg.body) 
+            # print('msg-') 
+            mail.send(msg)
+            # msg = Message("Email Verification", sender='support@mealsfor.me', recipients=[email])
+
+            # print('MESSAGE----', msg)
+            # print('message complete')
+            # # print("1")
+            # link = url_for('confirm', token=token, hashed=password, _external=True)
+            # # print("2")
+            # print('link---', link)
+            # msg.body = "Click on the link {} to verify your email address.".format(link)
+            # print('msg-bd----', msg.body)
+            # mail.send(msg)
+            return "Email Sent", 200
+
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 # -- ACCOUNT APIS -------------------------------------------------------------------------------
 
@@ -1060,6 +1124,7 @@ class stripe_key(Resource):
 api.add_resource(CreateAppointment, "/api/v2/createAppointment")
 api.add_resource(AvailableAppointments, "/api/v2/availableAppointments/<string:date_value>")
 api.add_resource(AddContact, "/api/v2/addContact")
+api.add_resource(SendEmail, '/api/v2/sendEmail')
 
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
