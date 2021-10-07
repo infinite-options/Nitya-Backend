@@ -377,7 +377,8 @@ class treatments(Resource):
             # QUERY 2
             query = """  
                 SELECT * FROM  nitya.treatments
-                WHERE availability = "Available"; 
+                WHERE availability = "Available"
+                ORDER BY category, display_order; 
                 """
             # The query is executed here
             items = execute(query, "get", conn)
@@ -424,7 +425,7 @@ class TruncatedBlog(Resource):
             conn = connect()
              # QUERY 5
             query = """
-                    SELECT blog_uid,blogCategory,blogTitle,slug,postedOn,author,blogImage,LEFT(blogText, 200) AS blogText FROM nitya.blog ;
+                    SELECT blog_uid,blogCategory,blogTitle,slug,postedOn,author,blogImage, blogSummary, LEFT(blogText, 1200) AS blogText FROM nitya.blog ;
                     """
             items = execute(query, "get", conn)
 
@@ -620,6 +621,7 @@ class AddBlog(Resource):
             postedOn = data["postedOn"]
             author = data["author"]
             blogImage = data["blogImage"]
+            blogSummary = data["blogSummary"]
             blogText = data["blogText"]
 
             query = ["CALL nitya.new_blog_uid;"]
@@ -636,6 +638,7 @@ class AddBlog(Resource):
                                     , postedOn
                                     , author
                                     , blogImage
+                                    , blogSummary
                                     , blogText
                                     ) 
                                 VALUES
@@ -646,6 +649,7 @@ class AddBlog(Resource):
                                     , \'""" + postedOn + """\'
                                     , \'""" + author + """\'
                                     , \'""" + blogImage + """\'
+                                    , \'""" + blogSummary + """\'
                                     , \'""" + blogText + """\');"""
             )
             items = execute(query, "post", conn)
