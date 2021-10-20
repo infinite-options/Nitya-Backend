@@ -613,7 +613,7 @@ class AddBlog(Resource):
             conn = connect()
             data = request.get_json(force=True)
             # print to Received data to Terminal
-            # print("Received:", data)
+            print("Received:", data)
 
             blogCategory = data["blogCategory"]
             blogTitle = data["blogTitle"]
@@ -1006,6 +1006,44 @@ class Calendar(Resource):
         finally:
             disconnect(conn)
 
+
+# SEND EMAIL
+class SendEmail(Resource):
+    def post(self):
+
+        try:
+            conn = connect()
+
+            data = request.get_json(force=True)
+            print(data)
+            email = data['email']
+            
+            msg = Message("Thanks for your Email!", sender='support@nityaayurveda.com', recipients=[email])
+            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
+            msg.body = "Hi !\n\n"\
+            "We are looking forward to meeting with you! \n"\
+            "Email support@nityaayurveda.com if you need to get in touch with us directly.\n" \
+            "Thx - Nitya Ayurveda\n\n" 
+            # print('msg-bd----', msg.body) 
+            # print('msg-') 
+            mail.send(msg)
+            # msg = Message("Email Verification", sender='support@mealsfor.me', recipients=[email])
+
+            # print('MESSAGE----', msg)
+            # print('message complete')
+            # # print("1")
+            # link = url_for('confirm', token=token, hashed=password, _external=True)
+            # # print("2")
+            # print('link---', link)
+            # msg.body = "Click on the link {} to verify your email address.".format(link)
+            # print('msg-bd----', msg.body)
+            # mail.send(msg)
+            return "Email Sent", 200
+
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
 
 # ACCOUNT QUERIES
 class findCustomerUID(Resource):
@@ -1554,6 +1592,9 @@ api.add_resource(Calendar, "/api/v2/calendar/<string:date_value>")
 api.add_resource(AvailableAppointments, "/api/v2/availableAppointments/<string:date_value>/<string:duration>")
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
+
+api.add_resource(SendEmail, "/api/v2/sendEmail")
+
 
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
