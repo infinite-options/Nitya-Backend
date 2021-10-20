@@ -543,6 +543,12 @@ class CreateAppointment(Resource):
                     """
             items = execute(query2, "post", conn)
 
+            # Send receipt emails
+            name = first_name + " " + last_name
+            message = treatment_uid + " " + purchase_price + " " + purchase_date
+            print(name)
+            SendEmail.get(self, name, email, phone_no, message) 
+
             response["message"] = "Appointments Post successful"
             response["result"] = items
             return response, 200
@@ -702,6 +708,11 @@ class AddContact(Resource):
             
             items = execute(query, "post", conn)
             print("items: ", items)
+
+            # Send receipt emails
+            phone = "none provided"
+            SendEmail.get(self, name, email, phone, subject)      
+
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
                 return response, 200
@@ -1015,6 +1026,47 @@ class Calendar(Resource):
 
 # SEND EMAIL
 class SendEmail(Resource):
+    def __call__(self):
+        print("In SendEmail")
+
+    def get(self, name, email, phone, subject):
+        print("In Send EMail get")
+        try:
+            conn = connect()
+
+            # Send email to Client
+            msg = Message("Thanks for your Email!", sender='info@infiniteoptions.com', recipients=[email])
+            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
+            msg.body = "Hi !\n\n"\
+            "We are looking forward to meeting with you! \n"\
+            "Email info@infiniteoption.com if you need to get in touch with us directly.\n" \
+            "Thx - Infinite Options\n\n" 
+            # print('msg-bd----', msg.body) 
+            mail.send(msg)
+
+            # print("first email sent")
+            # Send email to Host
+            msg = Message("New Email from Website!", sender='info@infiniteoptions.com', recipients=["pmarathay@gmail.com"])
+            msg.body = "Hi !\n\n"\
+            "You just got an email from your website! \n"\
+            "Here are the particulars:\n"\
+            "Name:      " + name + "\n"\
+            "Email:     " + email + "\n"\
+            "Phone:     " + phone + "\n"\
+            "Subject:   " + subject + "\n"\
+
+            "Thx - Infinite Options\n\n" 
+            # print('msg-bd----', msg.body) 
+            mail.send(msg)
+
+            return "Email Sent", 200
+
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
     def post(self):
 
         try:
@@ -1037,6 +1089,8 @@ class SendEmail(Resource):
             # print('msg-bd----', msg.body) 
             # print('msg-') 
             mail.send(msg)
+
+            # Send email to Host
             # msg = Message("Email Verification", sender='support@mealsfor.me', recipients=[email])
 
             # print('MESSAGE----', msg)
