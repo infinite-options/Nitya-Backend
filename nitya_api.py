@@ -107,10 +107,15 @@ stripe.api_key = stripe_secret_test_key
 CORS(app)
 
 # --------------- Mail Variables ------------------
-app.config["MAIL_USERNAME"] = os.environ.get("EMAIL")
-app.config["MAIL_PASSWORD"] = os.environ.get("PASSWORD")
-# app.config['MAIL_USERNAME'] = ''
-# app.config['MAIL_PASSWORD'] = ''
+# Mail username and password loaded in zappa_settings.json file
+app.config["MAIL_USERNAME"] = os.environ.get("SUPPORT_EMAIL")
+app.config["MAIL_PASSWORD"] = os.environ.get("SUPPORT_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("SUPPORT_EMAIL")
+
+# Use locally defined Username and Password to test via localhost and Postman
+# app.config['MAIL_USERNAME'] = 'support@nityaayurveda.com'
+# app.config['MAIL_PASSWORD'] = '<enter password here>'
+# app.config['MAIL_DEFAULT_SENDER'] = 'support@nityaayurveda.com'
 
 # Setting for mydomain.com
 app.config["MAIL_SERVER"] = "smtp.mydomain.com"
@@ -119,6 +124,7 @@ app.config["MAIL_PORT"] = 465
 # Setting for gmail
 # app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 # app.config['MAIL_PORT'] = 465
+
 
 app.config["MAIL_USE_TLS"] = False
 app.config["MAIL_USE_SSL"] = True
@@ -1018,6 +1024,10 @@ class SendEmail(Resource):
             print(data)
             email = data['email']
             
+            # msg = Message("Thanks for your Email!", sender='pmarathay@manifestmy.space', recipients=[email])
+            # msg = Message("Thanks for your Email!", sender='info@infiniteoptions.com', recipients=[email])
+            # msg = Message("Thanks for your Email!", sender='leena@nityaayurveda.com', recipients=[email])
+            # msg = Message("Thanks for your Email!", sender='pmarathay@buildsuccess.org', recipients=[email])
             msg = Message("Thanks for your Email!", sender='support@nityaayurveda.com', recipients=[email])
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
             msg.body = "Hi !\n\n"\
