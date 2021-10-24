@@ -583,30 +583,43 @@ class AddTreatment(Resource):
             NewID = NewIDresponse["result"][0]["new_id"]
             print("NewID = ", NewID)
 
-            query = (
-                """
-                    INSERT INTO treatments
-                    (   treatment_uid
-                        , title
-                        , category
-                        , description
-                        , cost
-                        , availability
-                        , duration
-                        , image_url
-                    ) 
-                    VALUES
-                    (     \'""" + NewID + """\'
-                        , \'""" + title + """\'
-                        , \'""" + category + """\'
-                        , \'""" + description + """\'
-                        , \'""" + cost + """\'
-                        , \'""" + availability + """\'
-                        , \'""" + duration + """\'
-                        , \'""" + image_url + """\'
-                    );
-                """
-            )
+            query = """
+                    INSERT INTO nitya.treatments
+                    SET treatment_uid = \'""" + NewID + """\',
+                        title = \'""" + title + """\',
+                        category = \'""" + category + """\',
+                        description = \'""" + description + """\',
+                        cost = \'""" + cost + """\',
+                        availability = \'""" + availability + """\',
+                        duration = \'""" + duration + """\',
+                        image_url = \'""" + image_url + """\';
+                    """        
+
+            # query = (
+            #     """
+            #         INSERT INTO treatments
+            #         (   treatment_uid
+            #             , title
+            #             , category
+            #             , description
+            #             , cost
+            #             , availability
+            #             , duration
+            #             , image_url
+            #         ) 
+            #         VALUES
+            #         (     \'""" + NewID + """\'
+            #             , \'""" + title + """\'
+            #             , \'""" + category + """\'
+            #             , \'""" + description + """\'
+            #             , \'""" + cost + """\'
+            #             , \'""" + availability + """\'
+            #             , \'""" + duration + """\'
+            #             , \'""" + image_url + """\'
+            #         );
+            #     """
+            # )
+
             items = execute(query, "post", conn)
 
             response["message"] = "Treatments Post successful"
@@ -628,42 +641,67 @@ class AddBlog(Resource):
             print("Received:", data)
 
             blogCategory = data["blogCategory"]
+            print(blogCategory)
             blogTitle = data["blogTitle"]
+            print(blogTitle)
             slug = data["slug"]
+            print(slug)
             postedOn = data["postedOn"]
+            print(postedOn)
             author = data["author"]
+            print(author)
             blogImage = data["blogImage"]
+            print(blogImage)
             blogSummary = data["blogSummary"]
+            print(blogSummary)
             blogText = data["blogText"]
+            print(blogText)
+            print("Data Received")
 
             query = ["CALL nitya.new_blog_uid;"]
+            print(query)
             NewIDresponse = execute(query[0], "get", conn)
+            print(NewIDresponse)
             NewID = NewIDresponse["result"][0]["new_id"]
             print("NewID = ", NewID)
 
-            query = (
-                """INSERT INTO blog
-                                (blog_uid 
-                                    , blogCategory
-                                    , blogTitle
-                                    , slug
-                                    , postedOn
-                                    , author
-                                    , blogImage
-                                    , blogSummary
-                                    , blogText
-                                    ) 
-                                VALUES
-                                (     \'""" + NewID + """\'
-                                    , \'""" + blogCategory + """\'
-                                    , \'""" + blogTitle + """\'
-                                    , \'""" + slug + """\'
-                                    , \'""" + postedOn + """\'
-                                    , \'""" + author + """\'
-                                    , \'""" + blogImage + """\'
-                                    , \'""" + blogSummary + """\'
-                                    , \'""" + blogText + """\');"""
-            )
+            query = """
+                    INSERT INTO nitya.blog
+                    SET blog_uid  = \'""" + NewID + """\',
+                        blogCategory = \'""" + blogCategory + """\',
+                        blogTitle = \'""" + blogTitle + """\',
+                        slug = \'""" + slug + """\',
+                        postedOn = \'""" + postedOn + """\',
+                        author = \'""" + author + """\',
+                        blogImage = \'""" + blogImage + """\',
+                        blogSummary = \'""" + blogSummary + """\',
+                        blogText = \'""" + blogText + """\';
+                    """   
+
+            # query = (
+            #     """INSERT INTO blog
+            #                     (blog_uid 
+            #                         , blogCategory
+            #                         , blogTitle
+            #                         , slug
+            #                         , postedOn
+            #                         , author
+            #                         , blogImage
+            #                         , blogSummary
+            #                         , blogText
+            #                         ) 
+            #                     VALUES
+            #                     (     \'""" + NewID + """\'
+            #                         , \'""" + blogCategory + """\'
+            #                         , \'""" + blogTitle + """\'
+            #                         , \'""" + slug + """\'
+            #                         , \'""" + postedOn + """\'
+            #                         , \'""" + author + """\'
+            #                         , \'""" + blogImage + """\'
+            #                         , \'""" + blogSummary + """\'
+            #                         , \'""" + blogText + """\');"""
+            # )
+            
             items = execute(query, "post", conn)
 
             response["message"] = "Blog Post successful"
@@ -710,7 +748,7 @@ class AddContact(Resource):
             print("items: ", items)
 
             # Send receipt emails
-            phone = "none provided"
+            phone = message
             SendEmail.get(self, name, email, phone, subject)      
 
             if items["code"] == 281:
@@ -1035,7 +1073,7 @@ class SendEmail(Resource):
             conn = connect()
 
             # Send email to Client
-            msg = Message("Thanks for your Email!", sender='info@infiniteoptions.com', recipients=[email])
+            msg = Message("Thanks for your Email!", sender='support@nityaayurveda.com', recipients=[email])
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
             msg.body = "Hi !\n\n"\
             "We are looking forward to meeting with you! \n"\
@@ -1046,7 +1084,7 @@ class SendEmail(Resource):
 
             # print("first email sent")
             # Send email to Host
-            msg = Message("New Email from Website!", sender='info@infiniteoptions.com', recipients=["pmarathay@gmail.com"])
+            msg = Message("New Email from Website!", sender='support@nityaayurveda.com', recipients=["Lmarathay@yahoo.com"])
             msg.body = "Hi !\n\n"\
             "You just got an email from your website! \n"\
             "Here are the particulars:\n"\
