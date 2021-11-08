@@ -173,11 +173,11 @@ RDS_PW = "prashant"
 # RDS_PW = RdsPw()
 
 
-# s3 = boto3.client('s3')
+s3 = boto3.client('s3')
 
 # aws s3 bucket where the image is stored
-# BUCKET_NAME = os.environ.get('MEAL_IMAGES_BUCKET')
-# BUCKET_NAME = 'servingnow'
+# BUCKET_NAME = os.environ.get('nitya-images')
+BUCKET_NAME = 'nitya-images'
 # allowed extensions for uploading a profile photo file
 ALLOWED_EXTENSIONS = set(["png", "jpg", "jpeg"])
 
@@ -400,6 +400,103 @@ class treatments(Resource):
 
         # http://localhost:4000/api/v2/treatments
 
+
+class AddBlog(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            blogCategory = data["blogCategory"]
+            # print(blogCategory)
+            blogTitle = data["blogTitle"]
+            # print(blogTitle)
+            slug = data["slug"]
+            # print(slug)
+            postedOn = data["postedOn"]
+            # print(postedOn)
+            author = data["author"]
+            # print(author)
+            blogImage = data["blogImage"]
+            print(blogImage)
+            blogSummary = data["blogSummary"]
+            # print(blogSummary)
+            blogText = data["blogText"]
+            # print(blogText)
+            print("Data Received")
+
+            query = ["CALL nitya.new_blog_uid;"]
+            print(query)
+            NewIDresponse = execute(query[0], "get", conn)
+            print(NewIDresponse)
+            NewID = NewIDresponse["result"][0]["new_id"]
+            print("NewID = ", NewID)
+
+            query = """
+                    INSERT INTO nitya.blog
+                    SET blog_uid  = \'""" + NewID + """\',
+                        blogCategory = \'""" + blogCategory + """\',
+                        blogTitle = \'""" + blogTitle + """\',
+                        slug = \'""" + slug + """\',
+                        postedOn = \'""" + postedOn + """\',
+                        author = \'""" + author + """\',
+                        blogImage = \'""" + blogImage + """\',
+                        blogSummary = \'""" + blogSummary + """\',
+                        blogText = \'""" + blogText + """\';
+                    """   
+            
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Blog Post successful"
+                return response, 200
+            else:
+                return items
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class UploadImage(Resource):
+    def post(self):
+        try:
+            print("in Upload Image")
+            item_photo = request.files.get('item_photo')
+            print(item_photo)
+            uid = request.form.get('filename')
+            print(uid)
+            bucket = 'nitya-images'
+            TimeStamp_test = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            print(TimeStamp_test)
+            key = "blogs/" + str(uid) + "_" + TimeStamp_test
+            print(key)
+           
+            filename = 'https://s3-us-west-1.amazonaws.com/' \
+                    + str(bucket) + '/' + str(key)
+
+            upload_file = s3.put_object(
+                                Bucket=bucket,
+                                Body=item_photo,
+                                Key=key,
+                                ACL='public-read',
+                                ContentType='image/jpeg'
+                            )
+            return filename
+            
+
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            print("image uploaded!")
+
+
 class FullBlog(Resource):
     def get(self, blog_id):
         response = {}
@@ -560,6 +657,11 @@ class CreateAppointment(Resource):
         # ENDPOINT AND JSON OBJECT THAT WORKS
         # http://localhost:4000/api/v2/createappointment            
 
+
+
+
+
+
 class AddTreatment(Resource):
     def post(self):
         response = {}
@@ -630,87 +732,7 @@ class AddTreatment(Resource):
         finally:
             disconnect(conn)
 
-class AddBlog(Resource):
-    def post(self):
-        response = {}
-        items = {}
-        try:
-            conn = connect()
-            data = request.get_json(force=True)
-            # print to Received data to Terminal
-            print("Received:", data)
 
-            blogCategory = data["blogCategory"]
-            print(blogCategory)
-            blogTitle = data["blogTitle"]
-            print(blogTitle)
-            slug = data["slug"]
-            print(slug)
-            postedOn = data["postedOn"]
-            print(postedOn)
-            author = data["author"]
-            print(author)
-            blogImage = data["blogImage"]
-            print(blogImage)
-            blogSummary = data["blogSummary"]
-            print(blogSummary)
-            blogText = data["blogText"]
-            print(blogText)
-            print("Data Received")
-
-            query = ["CALL nitya.new_blog_uid;"]
-            print(query)
-            NewIDresponse = execute(query[0], "get", conn)
-            print(NewIDresponse)
-            NewID = NewIDresponse["result"][0]["new_id"]
-            print("NewID = ", NewID)
-
-            query = """
-                    INSERT INTO nitya.blog
-                    SET blog_uid  = \'""" + NewID + """\',
-                        blogCategory = \'""" + blogCategory + """\',
-                        blogTitle = \'""" + blogTitle + """\',
-                        slug = \'""" + slug + """\',
-                        postedOn = \'""" + postedOn + """\',
-                        author = \'""" + author + """\',
-                        blogImage = \'""" + blogImage + """\',
-                        blogSummary = \'""" + blogSummary + """\',
-                        blogText = \'""" + blogText + """\';
-                    """   
-
-            # query = (
-            #     """INSERT INTO blog
-            #                     (blog_uid 
-            #                         , blogCategory
-            #                         , blogTitle
-            #                         , slug
-            #                         , postedOn
-            #                         , author
-            #                         , blogImage
-            #                         , blogSummary
-            #                         , blogText
-            #                         ) 
-            #                     VALUES
-            #                     (     \'""" + NewID + """\'
-            #                         , \'""" + blogCategory + """\'
-            #                         , \'""" + blogTitle + """\'
-            #                         , \'""" + slug + """\'
-            #                         , \'""" + postedOn + """\'
-            #                         , \'""" + author + """\'
-            #                         , \'""" + blogImage + """\'
-            #                         , \'""" + blogSummary + """\'
-            #                         , \'""" + blogText + """\');"""
-            # )
-            
-            items = execute(query, "post", conn)
-
-            response["message"] = "Blog Post successful"
-
-            return response, 200
-        except:
-            raise BadRequest("Request failed, please try again later.")
-        finally:
-            disconnect(conn)
 
 class AddContact(Resource):
     def post(self):
@@ -1077,8 +1099,8 @@ class SendEmail(Resource):
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
             msg.body = "Hi !\n\n"\
             "We are looking forward to meeting with you! \n"\
-            "Email info@infiniteoption.com if you need to get in touch with us directly.\n" \
-            "Thx - Infinite Options\n\n" 
+            "Email Leena@nityaayurveda.com if you need to get in touch with us directly.\n" \
+            "Thx - Nitya Ayurveda\n\n" 
             # print('msg-bd----', msg.body) 
             mail.send(msg)
 
@@ -1093,7 +1115,7 @@ class SendEmail(Resource):
             "Phone:     " + phone + "\n"\
             "Subject:   " + subject + "\n"\
 
-            "Thx - Infinite Options\n\n" 
+            "Thx - Nitya Ayurveda\n\n" 
             # print('msg-bd----', msg.body) 
             mail.send(msg)
 
@@ -1684,12 +1706,14 @@ api.add_resource(appointments, "/api/v2/appointments")
 api.add_resource(treatments, "/api/v2/treatments")
 api.add_resource(FullBlog, "/api/v2/fullBlog/<string:blog_id>")
 api.add_resource(TruncatedBlog, "/api/v2/truncatedBlog")
-api.add_resource(
-    OneCustomerAppointments, "/api/v2/oneCustomerAppointments/<string:customer_uid>"
-)
+api.add_resource(AddBlog, "/api/v2/addBlog")
+api.add_resource(UploadImage, "/api/v2/uploadImage")
+
+
+api.add_resource(OneCustomerAppointments, "/api/v2/oneCustomerAppointments/<string:customer_uid>")
 api.add_resource(CreateAppointment, "/api/v2/createAppointment")
 api.add_resource(AddTreatment, "/api/v2/addTreatment")
-api.add_resource(AddBlog, "/api/v2/addBlog")
+
 api.add_resource(Calendar, "/api/v2/calendar/<string:date_value>")
 api.add_resource(AvailableAppointments, "/api/v2/availableAppointments/<string:date_value>/<string:duration>")
 api.add_resource(AddContact, "/api/v2/addContact")
