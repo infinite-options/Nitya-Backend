@@ -532,7 +532,8 @@ class TruncatedBlog(Resource):
             query = """
                     SELECT blog_uid, blogCategory, blogTitle, slug, postedOn, author, blogImage, blogSummary, LEFT(blogText, 1200) AS blogText 
                     FROM nitya.blog
-                    WHERE blogStatus != 'DELETED';
+                    WHERE blogStatus != 'DELETED'
+                    ORDER BY postedOn DESC;
                     """
             items = execute(query, "get", conn)
 
