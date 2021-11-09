@@ -441,6 +441,7 @@ class AddBlog(Resource):
                     SET blog_uid  = \'""" + NewID + """\',
                         blogCategory = \'""" + blogCategory + """\',
                         blogTitle = \'""" + blogTitle + """\',
+                        blogStatus = 'ACTIVE',
                         slug = \'""" + slug + """\',
                         postedOn = \'""" + postedOn + """\',
                         author = \'""" + author + """\',
@@ -507,7 +508,8 @@ class FullBlog(Resource):
             query = (
                 """
                     SELECT * FROM nitya.blog
-                    WHERE blog_uid = \'""" + blog_id + """\';
+                    WHERE blog_uid = \'""" + blog_id + """\'
+                    AND blogStatus != 'DELETED';
                 """
             )
             items = execute(query, "get", conn)
@@ -528,7 +530,9 @@ class TruncatedBlog(Resource):
             conn = connect()
              # QUERY 5
             query = """
-                    SELECT blog_uid,blogCategory,blogTitle,slug,postedOn,author,blogImage, blogSummary, LEFT(blogText, 1200) AS blogText FROM nitya.blog ;
+                    SELECT blog_uid, blogCategory, blogTitle, slug, postedOn, author, blogImage, blogSummary, LEFT(blogText, 1200) AS blogText 
+                    FROM nitya.blog
+                    WHERE blogStatus != 'DELETED';
                     """
             items = execute(query, "get", conn)
 
@@ -537,6 +541,33 @@ class TruncatedBlog(Resource):
             return response, 200
         except:
             raise BadRequest("Specific Blog Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+class DeleteBlog(Resource):
+    def post(self, blog_id):
+        print("\nInside Delete")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            print("Inside try block")
+            print("Received:", blog_id)
+
+            query = """
+                    UPDATE nitya.blog
+                    SET blogStatus = 'DELETED'
+                    WHERE blog_uid = \'""" + blog_id + """\';
+                    """
+
+            products = execute(query, 'post', conn)
+            print("Back in class")
+            print(products)
+            return products['code']
+        
+        except:
+            raise BadRequest('Delete Request failed, please try again later.')
         finally:
             disconnect(conn)
 
@@ -1708,6 +1739,8 @@ api.add_resource(FullBlog, "/api/v2/fullBlog/<string:blog_id>")
 api.add_resource(TruncatedBlog, "/api/v2/truncatedBlog")
 api.add_resource(AddBlog, "/api/v2/addBlog")
 api.add_resource(UploadImage, "/api/v2/uploadImage")
+api.add_resource(DeleteBlog, "/api/v2/deleteBlog/<string:blog_id>")
+
 
 
 api.add_resource(OneCustomerAppointments, "/api/v2/oneCustomerAppointments/<string:customer_uid>")
