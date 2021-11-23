@@ -1397,65 +1397,98 @@ class createAccount(Resource):
 
                 print("Before write")
                 # write everything to database
+
                 customer_insert_query = [
                     """
                         INSERT INTO nitya.customers 
                         (
-                            customer_uid,
-                            customer_created_at,
-                            customer_first_name,
-                            customer_last_name,
-                            customer_phone_num,
-                            customer_email,
-                            customer_address,
-                            customer_unit,
-                            customer_city,
-                            customer_state,
-                            customer_zip,
-                            customer_lat,
-                            customer_long,
-                            password_salt,
-                            password_hashed,
-                            password_algorithm,
-                            referral_source,
-                            role,
-                            user_social_media,
-                            user_access_token,
-                            social_timestamp,
-                            user_refresh_token,
-                            mobile_access_token,
-                            mobile_refresh_token,
-                            social_id
-                        )
-                        VALUES
-                        (
-                        
-                            \'"""+ NewUserID+ """\',
-                            \'"""+ (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")+ """\',
-                            \'"""+ firstName+ """\',
-                            \'"""+ lastName+ """\',
-                            \'"""+ phone+ """\',
-                            \'"""+ email+ """\',
-                            \'"""+ address+ """\',
-                            \'"""+ unit+ """\',
-                            \'"""+ city+ """\',
-                            \'"""+ state+ """\',
-                            \'"""+ zip_code+ """\',
-                            \'"""+ latitude+ """\',
-                            \'"""+ longitude+ """\',
-                            \'"""+ salt+ """\',
-                            \'"""+ password+ """\',
-                            \'"""+ algorithm+ """\',
-                            \'"""+ referral+ """\',
-                            \'"""+ role+ """\',
-                            \'"""+ user_social_signup+ """\',
-                            \'"""+ user_access_token+ """\',
-                            DATE_ADD(now() , INTERVAL 14 DAY),
-                            \'"""+ user_refresh_token+ """\',
-                            \'"""+ mobile_access_token+ """\',
-                            \'"""+ mobile_refresh_token+ """\',
-                            \'"""+ social_id+ """\');"""
+                            customer_uid = \'"""+ NewUserID+ """\',
+                            customer_created_at = \'"""+ (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")+ """\',
+                            customer_first_name = \'"""+ firstName+ """\',
+                            customer_last_name = \'"""+ lastName+ """\',
+                            customer_phone_num = \'"""+ phone+ """\',
+                            customer_email = \'"""+ email+ """\',
+                            customer_address = \'"""+ address+ """\',
+                            customer_unit = \'"""+ unit+ """\',
+                            customer_city = \'"""+ city+ """\',
+                            customer_state = \'"""+ state+ """\',
+                            customer_zip = \'"""+ zip_code+ """\',
+                            customer_lat = \'"""+ latitude+ """\',
+                            customer_long = \'"""+ longitude+ """\',
+                            password_salt = \'"""+ salt+ """\',
+                            password_hashed = \'"""+ password+ """\',
+                            password_algorithm = \'"""+ algorithm+ """\',
+                            referral_source = \'"""+ referral+ """\',
+                            role = \'"""+ role+ """\',
+                            user_social_media = \'"""+ user_social_signup+ """\',
+                            user_access_token = \'"""+ user_access_token+ """\',
+                            social_timestamp = DATE_ADD(now() , INTERVAL 14 DAY),
+                            user_refresh_token = \'"""+ user_refresh_token+ """\',
+                            mobile_access_token = \'"""+ mobile_access_token+ """\',
+                            mobile_refresh_token = \'"""+ mobile_refresh_token+ """\',
+                            social_id  = \'"""+ social_id+ """\');"""
                         ]
+
+
+                # customer_insert_query = [
+                #     """
+                #         INSERT INTO nitya.customers 
+                #         (
+                #             customer_uid,
+                #             customer_created_at,
+                #             customer_first_name,
+                #             customer_last_name,
+                #             customer_phone_num,
+                #             customer_email,
+                #             customer_address,
+                #             customer_unit,
+                #             customer_city,
+                #             customer_state,
+                #             customer_zip,
+                #             customer_lat,
+                #             customer_long,
+                #             password_salt,
+                #             password_hashed,
+                #             password_algorithm,
+                #             referral_source,
+                #             role,
+                #             user_social_media,
+                #             user_access_token,
+                #             social_timestamp,
+                #             user_refresh_token,
+                #             mobile_access_token,
+                #             mobile_refresh_token,
+                #             social_id
+                #         )
+                #         VALUES
+                #         (
+                        
+                #             \'"""+ NewUserID+ """\',
+                #             \'"""+ (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")+ """\',
+                #             \'"""+ firstName+ """\',
+                #             \'"""+ lastName+ """\',
+                #             \'"""+ phone+ """\',
+                #             \'"""+ email+ """\',
+                #             \'"""+ address+ """\',
+                #             \'"""+ unit+ """\',
+                #             \'"""+ city+ """\',
+                #             \'"""+ state+ """\',
+                #             \'"""+ zip_code+ """\',
+                #             \'"""+ latitude+ """\',
+                #             \'"""+ longitude+ """\',
+                #             \'"""+ salt+ """\',
+                #             \'"""+ password+ """\',
+                #             \'"""+ algorithm+ """\',
+                #             \'"""+ referral+ """\',
+                #             \'"""+ role+ """\',
+                #             \'"""+ user_social_signup+ """\',
+                #             \'"""+ user_access_token+ """\',
+                #             DATE_ADD(now() , INTERVAL 14 DAY),
+                #             \'"""+ user_refresh_token+ """\',
+                #             \'"""+ mobile_access_token+ """\',
+                #             \'"""+ mobile_refresh_token+ """\',
+                #             \'"""+ social_id+ """\');"""
+                #         ]
             print(customer_insert_query[0])
             items = execute(customer_insert_query[0], "post", conn)
 
