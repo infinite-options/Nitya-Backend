@@ -1153,6 +1153,41 @@ class CustomerToken(Resource):
         finally:
             disconnect(conn)
 
+
+class UpdateAccessToken(Resource):
+    def post(self, customer_uid=None):
+        print("In customertoken")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            query = None
+            data = request.get_json(force=True)
+            user_access_token = data['user_access_token']
+
+            execute("""UPDATE customers
+                       SET user_access_token = \'""" + user_access_token + """\'
+                       WHERE customer_uid = \'""" + customer_uid + """\';
+                        """, 'post', conn)
+
+            # query = """UPDATE ta_people
+            #            SET
+            #            ta_google_auth_token = \'""" + ta_google_auth_token + """\'
+            #            WHERE ta_unique_id = \'""" + ta_id + """\';"""
+
+            # items =
+            # print(items)
+            response['message'] = 'successful'
+            # response['ta_google_auth_token'] = items['result'][0]['ta_google_auth_token']
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
 class GoogleCalenderEvents(Resource):
     def post(self, customer_uid, start, end):
         print("In Google Calender Events")
@@ -1919,7 +1954,7 @@ api.add_resource(AddTreatment, "/api/v2/addTreatment")
 
 api.add_resource(GoogleCalenderEvents,
                  '/api/v2/calenderEvents/<string:customer_uid>,<string:start>,<string:end>')
-                 
+api.add_resource(UpdateAccessToken, '/api/v2/UpdateAccessToken/<string:customer_uid>')
 api.add_resource(CustomerToken,
                  '/api/v2/customerToken/<string:customer_uid>')
 api.add_resource(AvailableAppointments, "/api/v2/availableAppointments/<string:date_value>/<string:duration>")
