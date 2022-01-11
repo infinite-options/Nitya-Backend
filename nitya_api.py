@@ -79,12 +79,11 @@ RDS_PORT = 3306
 RDS_USER = "admin"
 RDS_DB = "nitya"
 
-SCOPES = 'https://www.googleapis.com/auth/calendar'
-CLIENT_SECRET_FILE = 'credentials.json'
-APPLICATION_NAME = 'nitya-ayurveda'
+SCOPES = "https://www.googleapis.com/auth/calendar"
+CLIENT_SECRET_FILE = "credentials.json"
+APPLICATION_NAME = "nitya-ayurveda"
 # app = Flask(__name__)
 app = Flask(__name__, template_folder="assets")
-
 
 
 # --------------- Stripe Variables ------------------
@@ -93,22 +92,22 @@ import stripe
 
 
 # STRIPE AND PAYPAL KEYS
-paypal_secret_test_key = os.environ.get('paypal_secret_key_test')
-paypal_secret_live_key = os.environ.get('paypal_secret_key_live')
+paypal_secret_test_key = os.environ.get("paypal_secret_key_test")
+paypal_secret_live_key = os.environ.get("paypal_secret_key_live")
 
-paypal_client_test_key = os.environ.get('paypal_client_test_key')
-paypal_client_live_key = os.environ.get('paypal_client_live_key')
+paypal_client_test_key = os.environ.get("paypal_client_test_key")
+paypal_client_live_key = os.environ.get("paypal_client_live_key")
 
-stripe_public_test_key = os.environ.get('stripe_public_test_key')
-stripe_secret_test_key = os.environ.get('stripe_secret_test_key')
+stripe_public_test_key = os.environ.get("stripe_public_test_key")
+stripe_secret_test_key = os.environ.get("stripe_secret_test_key")
 
-stripe_public_live_key = os.environ.get('stripe_public_live_key')
-stripe_secret_live_key = os.environ.get('stripe_secret_live_key')
+stripe_public_live_key = os.environ.get("stripe_public_live_key")
+stripe_secret_live_key = os.environ.get("stripe_secret_live_key")
 
 stripe.api_key = stripe_secret_test_key
 
-#use below for local testing
-#stripe.api_key = ""sk_test_51J0UzOLGBFAvIBPFAm7Y5XGQ5APR...WTenXV4Q9ANpztS7Y7ghtwb007quqRPZ3"" 
+# use below for local testing
+# stripe.api_key = ""sk_test_51J0UzOLGBFAvIBPFAm7Y5XGQ5APR...WTenXV4Q9ANpztS7Y7ghtwb007quqRPZ3""
 
 
 CORS(app)
@@ -138,8 +137,8 @@ app.config["MAIL_USE_SSL"] = True
 
 
 # Set this to false when deploying to live application
-app.config['DEBUG'] = True
-#app.config["DEBUG"] = False
+app.config["DEBUG"] = True
+# app.config["DEBUG"] = False
 
 app.config["STRIPE_SECRET_KEY"] = os.environ.get("STRIPE_SECRET_KEY")
 
@@ -156,8 +155,13 @@ utc = pytz.utc
 # def getNow(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d %H:%M:%S")
 
 # # These statment return Day and Time in Local Time - Not sure about PST vs PDT
-def getToday(): return datetime.strftime(datetime.now(), "%Y-%m-%d")
-def getNow(): return datetime.strftime(datetime.now(),"%Y-%m-%d %H:%M:%S")
+def getToday():
+    return datetime.strftime(datetime.now(), "%Y-%m-%d")
+
+
+def getNow():
+    return datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
+
 
 # Not sure what these statments do
 # getToday = lambda: datetime.strftime(date.today(), "%Y-%m-%d")
@@ -180,14 +184,13 @@ RDS_PW = "prashant"
 # RDS_PW = RdsPw()
 
 
-s3 = boto3.client('s3')
+s3 = boto3.client("s3")
 
 # aws s3 bucket where the image is stored
 # BUCKET_NAME = os.environ.get('nitya-images')
-BUCKET_NAME = 'nitya-images'
+BUCKET_NAME = "nitya-images"
 # allowed extensions for uploading a profile photo file
 ALLOWED_EXTENSIONS = set(["png", "jpg", "jpeg"])
-
 
 
 # For Push notification
@@ -312,16 +315,18 @@ def runSelectQuery(query, cur):
 
 # RUN STORED PROCEDURES
 def get_new_paymentID(conn):
-    newPaymentQuery = execute("CALL new_payment_uid", 'get', conn)
-    if newPaymentQuery['code'] == 280:
-        return newPaymentQuery['result'][0]['new_id']
+    newPaymentQuery = execute("CALL new_payment_uid", "get", conn)
+    if newPaymentQuery["code"] == 280:
+        return newPaymentQuery["result"][0]["new_id"]
     return "Could not generate new payment ID", 500
 
+
 def get_new_contactUID(conn):
-    newPurchaseQuery = execute("CALL nitya.new_contact_uid()", 'get', conn)
-    if newPurchaseQuery['code'] == 280:
-        return newPurchaseQuery['result'][0]['new_id']
+    newPurchaseQuery = execute("CALL nitya.new_contact_uid()", "get", conn)
+    if newPurchaseQuery["code"] == 280:
+        return newPurchaseQuery["result"][0]["new_id"]
     return "Could not generate new contact UID", 500
+
 
 # -- Queries start here -------------------------------------------------------------------------------
 
@@ -354,27 +359,34 @@ class appointments(Resource):
         # ENDPOINT THAT WORKS
         # http://localhost:4000/api/v2/appointments
 
+
 class OneCustomerAppointments(Resource):
     def get(self, customer_uid):
         response = {}
         items = {}
-        print("appointment_uid", customer_uid)  
+        print("appointment_uid", customer_uid)
         try:
             conn = connect()
-            # QUERY 1B:  FINDS SPECIFIC CUSTOMERS APPOINTMENTS  
-            query = """
+            # QUERY 1B:  FINDS SPECIFIC CUSTOMERS APPOINTMENTS
+            query = (
+                """
                 SELECT * FROM nitya.customers, nitya.treatments, nitya.appointments
 		        WHERE customer_uid = appt_customer_uid
 			        AND treatment_uid = appt_treatment_uid
-                    AND customer_uid = \'""" + customer_uid + """\';
+                    AND customer_uid = \'"""
+                + customer_uid
+                + """\';
                 """
+            )
             items = execute(query, "get", conn)
 
             response["message"] = "Specific Appointment successful"
             response["result"] = items["result"]
             return response, 200
         except:
-            raise BadRequest("Customer Appointments Request failed, please try again later.")
+            raise BadRequest(
+                "Customer Appointments Request failed, please try again later."
+            )
         finally:
             disconnect(conn)
 
@@ -443,20 +455,40 @@ class AddBlog(Resource):
             NewID = NewIDresponse["result"][0]["new_id"]
             print("NewID = ", NewID)
 
-            query = """
+            query = (
+                """
                     INSERT INTO nitya.blog
-                    SET blog_uid  = \'""" + NewID + """\',
-                        blogCategory = \'""" + blogCategory + """\',
-                        blogTitle = \'""" + blogTitle + """\',
+                    SET blog_uid  = \'"""
+                + NewID
+                + """\',
+                        blogCategory = \'"""
+                + blogCategory
+                + """\',
+                        blogTitle = \'"""
+                + blogTitle
+                + """\',
                         blogStatus = 'ACTIVE',
-                        slug = \'""" + slug + """\',
-                        postedOn = \'""" + postedOn + """\',
-                        author = \'""" + author + """\',
-                        blogImage = \'""" + blogImage + """\',
-                        blogSummary = \'""" + blogSummary + """\',
-                        blogText = \'""" + blogText + """\';
-                    """   
-            
+                        slug = \'"""
+                + slug
+                + """\',
+                        postedOn = \'"""
+                + postedOn
+                + """\',
+                        author = \'"""
+                + author
+                + """\',
+                        blogImage = \'"""
+                + blogImage
+                + """\',
+                        blogSummary = \'"""
+                + blogSummary
+                + """\',
+                        blogText = \'"""
+                + blogText
+                + """\';
+                    """
+            )
+
             items = execute(query, "post", conn)
             print(items)
 
@@ -472,35 +504,110 @@ class AddBlog(Resource):
             disconnect(conn)
 
 
+class SeminarRegister(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            first_name = data["first_name"]
+            # print(first_name)
+            last_name = data["last_name"]
+            # print(last_name)
+            email = data["email"]
+            # print(email)
+            city = data["city"]
+            # print(city)
+            state = data["state"]
+            # print(state)
+
+            mode = data["mode"]
+            # print(mode)
+
+            print("Data Received")
+
+            query = ["CALL nitya.new_seminar_uid;"]
+            print(query)
+            NewIDresponse = execute(query[0], "get", conn)
+            print(NewIDresponse)
+            NewID = NewIDresponse["result"][0]["new_id"]
+            print("NewID = ", NewID)
+
+            query = (
+                """
+                    INSERT INTO nitya.seminar
+                    SET seminar_uid  = \'"""
+                + NewID
+                + """\',
+                        first_name = \'"""
+                + first_name
+                + """\',
+                        last_name = \'"""
+                + last_name
+                + """\',
+                        email = \'"""
+                + email
+                + """\',
+                        city = \'"""
+                + city
+                + """\',
+                        state = \'"""
+                + state
+                + """\',
+                        mode = \'"""
+                + mode
+                + """\';
+                    """
+            )
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Registration successful"
+                return response, 200
+            else:
+                return items
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class UploadImage(Resource):
     def post(self):
         try:
             print("in Upload Image")
-            item_photo = request.files.get('item_photo')
+            item_photo = request.files.get("item_photo")
             print(item_photo)
-            uid = request.form.get('filename')
+            uid = request.form.get("filename")
             print(uid)
-            bucket = 'nitya-images'
+            bucket = "nitya-images"
             TimeStamp_test = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             print(TimeStamp_test)
             key = "blogs/" + str(uid) + "_" + TimeStamp_test
             print(key)
-           
-            filename = 'https://s3-us-west-1.amazonaws.com/' \
-                    + str(bucket) + '/' + str(key)
+
+            filename = (
+                "https://s3-us-west-1.amazonaws.com/" + str(bucket) + "/" + str(key)
+            )
 
             upload_file = s3.put_object(
-                                Bucket=bucket,
-                                Body=item_photo,
-                                Key=key,
-                                ACL='public-read',
-                                ContentType='image/jpeg'
-                            )
+                Bucket=bucket,
+                Body=item_photo,
+                Key=key,
+                ACL="public-read",
+                ContentType="image/jpeg",
+            )
             return filename
-            
 
         except:
-            raise BadRequest('Request failed, please try again later.')
+            raise BadRequest("Request failed, please try again later.")
         finally:
             print("image uploaded!")
 
@@ -511,11 +618,13 @@ class FullBlog(Resource):
         items = {}
         try:
             conn = connect()
-             # QUERY 4
+            # QUERY 4
             query = (
                 """
                     SELECT * FROM nitya.blog
-                    WHERE blog_uid = \'""" + blog_id + """\'
+                    WHERE blog_uid = \'"""
+                + blog_id
+                + """\'
                     AND blogStatus != 'DELETED';
                 """
             )
@@ -529,13 +638,14 @@ class FullBlog(Resource):
         finally:
             disconnect(conn)
 
+
 class TruncatedBlog(Resource):
     def get(self):
         response = {}
         items = {}
         try:
             conn = connect()
-             # QUERY 5
+            # QUERY 5
             query = """
                     SELECT blog_uid, blogCategory, blogTitle, slug, postedOn, author, blogImage, blogSummary, LEFT(blogText, 1200) AS blogText 
                     FROM nitya.blog
@@ -552,6 +662,7 @@ class TruncatedBlog(Resource):
         finally:
             disconnect(conn)
 
+
 class DeleteBlog(Resource):
     def post(self, blog_id):
         print("\nInside Delete")
@@ -563,21 +674,26 @@ class DeleteBlog(Resource):
             print("Inside try block")
             print("Received:", blog_id)
 
-            query = """
+            query = (
+                """
                     UPDATE nitya.blog
                     SET blogStatus = 'DELETED'
-                    WHERE blog_uid = \'""" + blog_id + """\';
+                    WHERE blog_uid = \'"""
+                + blog_id
+                + """\';
                     """
+            )
 
-            products = execute(query, 'post', conn)
+            products = execute(query, "post", conn)
             print("Back in class")
             print(products)
-            return products['code']
-        
+            return products["code"]
+
         except:
-            raise BadRequest('Delete Request failed, please try again later.')
+            raise BadRequest("Delete Request failed, please try again later.")
         finally:
             disconnect(conn)
+
 
 class CreateAppointment(Resource):
     def post(self):
@@ -589,7 +705,7 @@ class CreateAppointment(Resource):
             data = request.get_json(force=True)
             print("Received:", data)
 
-             #  GET CUSTOMER APPOINTMENT INFO
+            #  GET CUSTOMER APPOINTMENT INFO
             first_name = data["first_name"]
             last_name = data["last_name"]
             email = data["email"]
@@ -600,7 +716,6 @@ class CreateAppointment(Resource):
             timevalue = data["appt_time"]
             purchase_price = data["purchase_price"]
             purchase_date = data["purchase_date"]
-           
 
             #  PRINT CUSTOMER APPOINTMENT INFO
             print("first_name", first_name)
@@ -627,8 +742,12 @@ class CreateAppointment(Resource):
             query1 = (
                 """ 
                     SELECT customer_uid FROM nitya.customers 
-                    WHERE customer_email = \'""" + email + """\' 
-                    AND   customer_phone_num = \'""" + phone_no + """\';
+                    WHERE customer_email = \'"""
+                + email
+                + """\' 
+                    AND   customer_phone_num = \'"""
+                + phone_no
+                + """\';
                 """
             )
             cus_id = execute(query1, "get", conn)
@@ -645,14 +764,26 @@ class CreateAppointment(Resource):
                 NewIDresponse = execute(query[0], "get", conn)
                 NewcustomerID = NewIDresponse["result"][0]["new_id"]
 
-                customer_insert_query = """
-                    INSERT INTO nitya.customers
-                    SET customer_uid = \'""" + NewcustomerID + """\',
-                        customer_first_name = \'""" + first_name + """\',
-                        customer_last_name = \'""" + last_name + """\',
-                        customer_phone_num = \'""" + phone_no + """\',
-                        customer_email = \'""" + email + """\'
+                customer_insert_query = (
                     """
+                    INSERT INTO nitya.customers
+                    SET customer_uid = \'"""
+                    + NewcustomerID
+                    + """\',
+                        customer_first_name = \'"""
+                    + first_name
+                    + """\',
+                        customer_last_name = \'"""
+                    + last_name
+                    + """\',
+                        customer_phone_num = \'"""
+                    + phone_no
+                    + """\',
+                        customer_email = \'"""
+                    + email
+                    + """\'
+                    """
+                )
 
                 customer_items = execute(customer_insert_query, "post", conn)
                 print("NewcustomerID=", NewcustomerID)
@@ -666,24 +797,42 @@ class CreateAppointment(Resource):
             #  convert to new format:  payment_time_stamp = \'''' + getNow() + '''\',
 
             #  INSERT INTO APPOINTMENTS TABLE
-            query2 = """
+            query2 = (
+                """
                     INSERT INTO nitya.appointments
-                    SET appointment_uid = \'""" + NewID + """\',
-                        appt_customer_uid = \'""" + NewcustomerID + """\',
-                        appt_treatment_uid = \'""" + treatment_uid + """\',
-                        notes = \'""" + str(notes) + """\',
-                        appt_date = \'""" + datevalue + """\',
-                        appt_time = \'""" + timevalue + """\',
-                        purchase_price = \'""" + purchase_price + """\',
-                        purchase_date = \'""" + purchase_date + """\'
+                    SET appointment_uid = \'"""
+                + NewID
+                + """\',
+                        appt_customer_uid = \'"""
+                + NewcustomerID
+                + """\',
+                        appt_treatment_uid = \'"""
+                + treatment_uid
+                + """\',
+                        notes = \'"""
+                + str(notes)
+                + """\',
+                        appt_date = \'"""
+                + datevalue
+                + """\',
+                        appt_time = \'"""
+                + timevalue
+                + """\',
+                        purchase_price = \'"""
+                + purchase_price
+                + """\',
+                        purchase_date = \'"""
+                + purchase_date
+                + """\'
                     """
+            )
             items = execute(query2, "post", conn)
 
             # Send receipt emails
             name = first_name + " " + last_name
             message = treatment_uid + " " + purchase_price + " " + purchase_date
             print(name)
-            SendEmail.get(self, name, email, phone_no, message) 
+            SendEmail.get(self, name, email, phone_no, message)
 
             response["message"] = "Appointments Post successful"
             response["result"] = items
@@ -694,11 +843,7 @@ class CreateAppointment(Resource):
             disconnect(conn)
 
         # ENDPOINT AND JSON OBJECT THAT WORKS
-        # http://localhost:4000/api/v2/createappointment            
-
-
-
-
+        # http://localhost:4000/api/v2/createappointment
 
 
 class AddTreatment(Resource):
@@ -724,17 +869,35 @@ class AddTreatment(Resource):
             NewID = NewIDresponse["result"][0]["new_id"]
             print("NewID = ", NewID)
 
-            query = """
+            query = (
+                """
                     INSERT INTO nitya.treatments
-                    SET treatment_uid = \'""" + NewID + """\',
-                        title = \'""" + title + """\',
-                        category = \'""" + category + """\',
-                        description = \'""" + description + """\',
-                        cost = \'""" + cost + """\',
-                        availability = \'""" + availability + """\',
-                        duration = \'""" + duration + """\',
-                        image_url = \'""" + image_url + """\';
-                    """        
+                    SET treatment_uid = \'"""
+                + NewID
+                + """\',
+                        title = \'"""
+                + title
+                + """\',
+                        category = \'"""
+                + category
+                + """\',
+                        description = \'"""
+                + description
+                + """\',
+                        cost = \'"""
+                + cost
+                + """\',
+                        availability = \'"""
+                + availability
+                + """\',
+                        duration = \'"""
+                + duration
+                + """\',
+                        image_url = \'"""
+                + image_url
+                + """\';
+                    """
+            )
 
             # query = (
             #     """
@@ -747,7 +910,7 @@ class AddTreatment(Resource):
             #             , availability
             #             , duration
             #             , image_url
-            #         ) 
+            #         )
             #         VALUES
             #         (     \'""" + NewID + """\'
             #             , \'""" + title + """\'
@@ -772,7 +935,6 @@ class AddTreatment(Resource):
             disconnect(conn)
 
 
-
 class AddContact(Resource):
     def post(self):
         response = {}
@@ -794,23 +956,36 @@ class AddContact(Resource):
             print(new_contact_uid)
             print(getNow())
 
-            
-            query =  '''
+            query = (
+                """
                 INSERT INTO nitya.contact
-                SET contact_uid = \'''' + new_contact_uid + '''\',
-                    contact_created_at = \'''' + getNow() + '''\',
-                    name = \'''' + name + '''\',
-                    email = \'''' + email + '''\',
-                    subject = \'''' + subject + '''\',
-                    message = \'''' + message + '''\'
-                '''
-            
+                SET contact_uid = \'"""
+                + new_contact_uid
+                + """\',
+                    contact_created_at = \'"""
+                + getNow()
+                + """\',
+                    name = \'"""
+                + name
+                + """\',
+                    email = \'"""
+                + email
+                + """\',
+                    subject = \'"""
+                + subject
+                + """\',
+                    message = \'"""
+                + message
+                + """\'
+                """
+            )
+
             items = execute(query, "post", conn)
             print("items: ", items)
 
             # Send receipt emails
             phone = message
-            SendEmail.get(self, name, email, phone, subject)      
+            SendEmail.get(self, name, email, phone, subject)
 
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
@@ -819,6 +994,7 @@ class AddContact(Resource):
             raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
 
 class purchaseDetails(Resource):
     # QUERY 1 RETURNS ALL BUSINESSES
@@ -850,6 +1026,7 @@ class purchaseDetails(Resource):
         finally:
             disconnect(conn)
 
+
 class AvailableAppointments(Resource):
     def get(self, date_value, duration):
         print("\nInside Available Appointments")
@@ -861,7 +1038,8 @@ class AvailableAppointments(Resource):
             print("Inside try block", date_value, duration)
 
             # CALCULATE AVAILABLE TIME SLOTS
-            query = """
+            query = (
+                """
                     -- AVAILABLE TIME SLOTS QUERY - WORKS
                     WITH ats AS (
                     -- CALCULATE AVAILABLE TIME SLOTS
@@ -896,21 +1074,27 @@ class AvailableAppointments(Resource):
                             FROM nitya.appointments
                             LEFT JOIN nitya.treatments
                             ON appt_treatment_uid = treatment_uid    
-                            WHERE appt_date = '""" + date_value + """') AS appt_dur
+                            WHERE appt_date = '"""
+                + date_value
+                + """') AS appt_dur
                         ON TIME(ts.begin_datetime) = appt_dur.start_time
                             OR (TIME(ts.begin_datetime) > appt_dur.start_time AND TIME(end_datetime) <= ADDTIME(appt_dur.end_time,"0:29"))
                         -- GET PRACTIONER AVAILABILITY
                         LEFT JOIN (
                             SELECT *
                             FROM nitya.practioner_availability
-                            WHERE date = '""" + date_value + """') AS pa
+                            WHERE date = '"""
+                + date_value
+                + """') AS pa
                         ON TIME(ts.begin_datetime) = pa.start_time_notavailable
                             OR (TIME(ts.begin_datetime) > pa.start_time_notavailable AND TIME(ts.end_datetime) <= ADDTIME(pa.end_time_notavailable,"0:29"))
                         -- GET OPEN HOURS
                         LEFT JOIN (
                             SELECT *
                             FROM nitya.days
-                            WHERE dayofweek = DAYOFWEEK('""" + date_value + """')) AS openhrs
+                            WHERE dayofweek = DAYOFWEEK('"""
+                + date_value
+                + """')) AS openhrs
                         ON TIME(ts.begin_datetime) = openhrs.morning_start_time
                             OR (TIME(ts.begin_datetime) > openhrs.morning_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_datetime) = openhrs.afternoon_start_time
@@ -956,20 +1140,24 @@ class AvailableAppointments(Resource):
                                     end_time AS end_time_twohr
                                 FROM ats) AS ats3
                             ON ats.row_num + 3 = ats3.row_num_twohr) AS atss) AS atsss
-                    WHERE '""" + duration + """' <= available_duration;
+                    WHERE '"""
+                + duration
+                + """' <= available_duration;
                     """
+            )
 
-            available_times = execute(query, 'get', conn)
-            print("Available Times: ", str(available_times['result']))
-            print("Number of time slots: ", len(available_times['result']))
+            available_times = execute(query, "get", conn)
+            print("Available Times: ", str(available_times["result"]))
+            print("Number of time slots: ", len(available_times["result"]))
             # print("Available Times: ", str(available_times['result'][0]["appt_start"]))
 
             return available_times
-        
+
         except:
-            raise BadRequest('Available Time Request failed, please try again later.')
+            raise BadRequest("Available Time Request failed, please try again later.")
         finally:
             disconnect(conn)
+
 
 class Calendar(Resource):
     def get(self, date_value):
@@ -982,7 +1170,8 @@ class Calendar(Resource):
             print("Inside try block", id)
 
             # CALCULATE AVAILABLE TIME SLOTS
-            query = """
+            query = (
+                """
                     SELECT 
                         TIME_FORMAT(ts_begin, '%T') AS appt_start,
                         TIME_FORMAT(ts_end, '%T') AS appt_end
@@ -1011,14 +1200,18 @@ class Calendar(Resource):
                             FROM nitya.appointments
                             LEFT JOIN nitya.treatments
                             ON appt_treatment_uid = treatment_uid    
-                            WHERE appt_date = '""" + date_value + """') AS appt_dur
+                            WHERE appt_date = '"""
+                + date_value
+                + """') AS appt_dur
                         ON TIME(ts.begin_time) = appt_dur.start_time
                             OR (TIME(ts.begin_time) > appt_dur.start_time AND TIME(ts.stop_time) <= ADDTIME(appt_dur.end_time,"0:29"))
                         -- GET PRACTIONER AVAILABILITY
                         LEFT JOIN (
                             SELECT *
                             FROM nitya.practioner_availability
-                            WHERE date = '""" + date_value + """') AS pa
+                            WHERE date = '"""
+                + date_value
+                + """') AS pa
                         ON TIME(ts.begin_time) = pa.start_time_notavailable
                             OR (TIME(ts.begin_time) > pa.start_time_notavailable AND TIME(ts.stop_time) <= ADDTIME(pa.end_time_notavailable,"0:29"))
                         -- GET OPEN HOURS
@@ -1027,7 +1220,9 @@ class Calendar(Resource):
                                 -- ADDTIME(morning_start_time, "0:29"),
                                 -- if(morning_start_time = "9:00:00","Y","N")
                             FROM nitya.days
-                            WHERE dayofweek = DAYOFWEEK('""" + date_value + """')) AS openhrs
+                            WHERE dayofweek = DAYOFWEEK('"""
+                + date_value
+                + """')) AS openhrs
                         ON TIME(ts.begin_time) = openhrs.morning_start_time
                             OR (TIME(ts.begin_time) > openhrs.morning_start_time AND TIME(ts.stop_time) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_time) = openhrs.afternoon_start_time
@@ -1037,13 +1232,14 @@ class Calendar(Resource):
                         AND ISNULL(taadpa.prac_avail_uid)
                         AND !ISNULL(days_uid)
                     """
+            )
 
-            available_times = execute(query, 'get', conn)
-            print("Available Times: ", str(available_times['result']))
-            print("Number of time slots: ", len(available_times['result']))
-            print("Available Times: ", str(available_times['result'][0]["appt_start"]))
+            available_times = execute(query, "get", conn)
+            print("Available Times: ", str(available_times["result"]))
+            print("Number of time slots: ", len(available_times["result"]))
+            print("Available Times: ", str(available_times["result"][0]["appt_start"]))
 
-            return available_times['result']
+            return available_times["result"]
 
             # d = datetime.strptime('0:29:59', '%H:%M:%S' )
             # print(d, type(d))
@@ -1081,7 +1277,6 @@ class Calendar(Resource):
             # n = n + 1
             # print(times)
 
-
             # for appt in available_times['result']:
             #     s = datetime.strptime(appt['appt_start'], '%H:%M:%S' ).time()
             #     e = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
@@ -1090,15 +1285,10 @@ class Calendar(Resource):
 
             # print(times)
 
-
-
             # n = 0
             # while n < len(available_times['result']):
-                
 
-
-
-            # 
+            #
 
             # d = datetime.strptime('0:30:00', '%H:%M:%S' ).time()
             # print(d, type(d))
@@ -1111,14 +1301,14 @@ class Calendar(Resource):
             #     # print(x, type(x))
             #     s = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
             #     e = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
-                
+
             #     print(s, type(s))
-            
-                # print(datetime.strptime(appt['appt_end']))
-                #  - datetime.strptime(appt['appt_start']))
-        
+
+            # print(datetime.strptime(appt['appt_end']))
+            #  - datetime.strptime(appt['appt_start']))
+
         except:
-            raise BadRequest('Available Time Request failed, please try again later.')
+            raise BadRequest("Available Time Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1133,23 +1323,27 @@ class CustomerToken(Resource):
             conn = connect()
             query = None
 
-            query = """SELECT customer_uid
+            query = (
+                """SELECT customer_uid
                                 , customer_email
                                 , user_access_token
                                 , user_refresh_token
                         FROM
-                        customers WHERE customer_uid = \'""" + customer_uid + """\';"""
+                        customers WHERE customer_uid = \'"""
+                + customer_uid
+                + """\';"""
+            )
 
-            items = execute(query, 'get', conn)
+            items = execute(query, "get", conn)
             print(items)
-            response['message'] = 'successful'
-            response['customer_email'] = items['result'][0]['customer_email']
-            response['user_access_token'] = items['result'][0]['user_access_token']
-            response['user_refresh_token'] = items['result'][0]['user_refresh_token']
+            response["message"] = "successful"
+            response["customer_email"] = items["result"][0]["customer_email"]
+            response["user_access_token"] = items["result"][0]["user_access_token"]
+            response["user_refresh_token"] = items["result"][0]["user_refresh_token"]
 
             return response, 200
         except:
-            raise BadRequest('Request failed, please try again later.')
+            raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1164,12 +1358,20 @@ class UpdateAccessToken(Resource):
             conn = connect()
             query = None
             data = request.get_json(force=True)
-            user_access_token = data['user_access_token']
+            user_access_token = data["user_access_token"]
 
-            execute("""UPDATE customers
-                       SET user_access_token = \'""" + user_access_token + """\'
-                       WHERE customer_uid = \'""" + customer_uid + """\';
-                        """, 'post', conn)
+            execute(
+                """UPDATE customers
+                       SET user_access_token = \'"""
+                + user_access_token
+                + """\'
+                       WHERE customer_uid = \'"""
+                + customer_uid
+                + """\';
+                        """,
+                "post",
+                conn,
+            )
 
             # query = """UPDATE ta_people
             #            SET
@@ -1178,12 +1380,12 @@ class UpdateAccessToken(Resource):
 
             # items =
             # print(items)
-            response['message'] = 'successful'
+            response["message"] = "successful"
             # response['ta_google_auth_token'] = items['result'][0]['ta_google_auth_token']
 
             return response, 200
         except:
-            raise BadRequest('Request failed, please try again later.')
+            raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1200,125 +1402,167 @@ class GoogleCalenderEvents(Resource):
             # start = data["start"]
             # end = data["end"]
 
-            items = execute("""SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'""" +
-                            customer_uid + """\'""", 'get', conn)
+            items = execute(
+                """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+                + customer_uid
+                + """\'""",
+                "get",
+                conn,
+            )
 
-       
-            if len(items['result']) == 0:
+            if len(items["result"]) == 0:
                 return "No such user exists"
-            print('items',items)
-            if items['result'][0]['access_expires_in'] == None or items['result'][0]['social_timestamp'] == None:
-                f = open('credentials.json',)
-                print('in if')
+            print("items", items)
+            if (
+                items["result"][0]["access_expires_in"] == None
+                or items["result"][0]["social_timestamp"] == None
+            ):
+                f = open(
+                    "credentials.json",
+                )
+                print("in if")
                 data = json.load(f)
-                client_id = data['web']['client_id']
-                client_secret = data['web']['client_secret']
-                refresh_token = items['result'][0]['google_refresh_token']
-                print('in if', data)
+                client_id = data["web"]["client_id"]
+                client_secret = data["web"]["client_secret"]
+                refresh_token = items["result"][0]["google_refresh_token"]
+                print("in if", data)
                 params = {
                     "grant_type": "refresh_token",
                     "client_id": client_id,
                     "client_secret": client_secret,
-                    "refresh_token": items['result'][0]['google_refresh_token'],
+                    "refresh_token": items["result"][0]["google_refresh_token"],
                 }
-                print('in if', params)
+                print("in if", params)
                 authorization_url = "https://accounts.google.com/o/oauth2/token"
                 r = requests.post(authorization_url, data=params)
                 auth_token = ""
                 if r.ok:
-                    auth_token = r.json()['access_token']
-                expires_in = r.json()['expires_in']
-                print('in if', expires_in)
-                execute("""UPDATE customers SET 
-                                user_access_token = \'""" + str(auth_token) + """\'
-                                , social_timestamp = \'""" + str(timestamp) + """\'
-                                , access_expires_in = \'""" + str(expires_in) + """\'
-                                WHERE customer_uid = \'""" + customer_uid + """\';""", 'post', conn)
-                items = execute("""SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'""" +
-                                customer_uid + """\'""", 'get', conn)
+                    auth_token = r.json()["access_token"]
+                expires_in = r.json()["expires_in"]
+                print("in if", expires_in)
+                execute(
+                    """UPDATE customers SET 
+                                user_access_token = \'"""
+                    + str(auth_token)
+                    + """\'
+                                , social_timestamp = \'"""
+                    + str(timestamp)
+                    + """\'
+                                , access_expires_in = \'"""
+                    + str(expires_in)
+                    + """\'
+                                WHERE customer_uid = \'"""
+                    + customer_uid
+                    + """\';""",
+                    "post",
+                    conn,
+                )
+                items = execute(
+                    """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+                    + customer_uid
+                    + """\'""",
+                    "get",
+                    conn,
+                )
                 print(items)
                 baseUri = "https://www.googleapis.com/calendar/v3/calendars/primary/events?orderBy=startTime&"
-                timeMaxMin = "timeMax="+end+"&timeMin="+start
+                timeMaxMin = "timeMax=" + end + "&timeMin=" + start
                 url = baseUri + timeMaxMin
-                bearerString = "Bearer " + \
-                    items['result'][0]['user_access_token']
-                headers = {"Authorization": bearerString,
-                           "Accept": "application/json"}
+                bearerString = "Bearer " + items["result"][0]["user_access_token"]
+                headers = {"Authorization": bearerString, "Accept": "application/json"}
                 response = requests.get(url, headers=headers)
                 response.raise_for_status()
-                calendars = response.json().get('items')
+                calendars = response.json().get("items")
                 return calendars
 
             else:
-                print('in else')
-                access_issue_min = int(
-                    items['result'][0]['access_expires_in'])/60
-                print('in else', access_issue_min)
-                print('in else', items['result'][0]['social_timestamp'])
+                print("in else")
+                access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
+                print("in else", access_issue_min)
+                print("in else", items["result"][0]["social_timestamp"])
                 social_timestamp = datetime.strptime(
-                    items['result'][0]['social_timestamp'], "%Y-%m-%d %H:%M:%S")
-                print('in else', social_timestamp)
-                
+                    items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
+                )
+                print("in else", social_timestamp)
+
                 timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-                print('in else', timestamp)
+                print("in else", timestamp)
                 diff = (timestamp - social_timestamp).total_seconds() / 60
-                print('in else', diff)
+                print("in else", diff)
                 if int(diff) > int(access_issue_min):
-                    print('in else', diff)
-                    f = open('credentials.json',)
+                    print("in else", diff)
+                    f = open(
+                        "credentials.json",
+                    )
                     data = json.load(f)
-                    client_id = data['web']['client_id']
-                    client_secret = data['web']['client_secret']
-                    refresh_token = items['result'][0]['google_refresh_token']
-                    print('in else data', data)
+                    client_id = data["web"]["client_id"]
+                    client_secret = data["web"]["client_secret"]
+                    refresh_token = items["result"][0]["google_refresh_token"]
+                    print("in else data", data)
                     params = {
                         "grant_type": "refresh_token",
                         "client_id": client_id,
                         "client_secret": client_secret,
-                        "refresh_token": items['result'][0]['google_refresh_token'],
+                        "refresh_token": items["result"][0]["google_refresh_token"],
                     }
-                    print('in else', params)
+                    print("in else", params)
                     authorization_url = "https://accounts.google.com/o/oauth2/token"
                     r = requests.post(authorization_url, data=params)
-                    print('in else', r)
+                    print("in else", r)
                     auth_token = ""
                     if r.ok:
-                        auth_token = r.json()['access_token']
-                    expires_in = r.json()['expires_in']
-                    print('in else', expires_in)
-                    execute("""UPDATE customers SET 
-                                    user_access_token = \'""" + str(auth_token) + """\'
-                                    , social_timestamp = \'""" + str(timestamp) + """\'
-                                    , access_expires_in = \'""" + str(expires_in) + """\'
-                                    WHERE customer_uid = \'""" + customer_uid + """\';""", 'post', conn)
+                        auth_token = r.json()["access_token"]
+                    expires_in = r.json()["expires_in"]
+                    print("in else", expires_in)
+                    execute(
+                        """UPDATE customers SET 
+                                    user_access_token = \'"""
+                        + str(auth_token)
+                        + """\'
+                                    , social_timestamp = \'"""
+                        + str(timestamp)
+                        + """\'
+                                    , access_expires_in = \'"""
+                        + str(expires_in)
+                        + """\'
+                                    WHERE customer_uid = \'"""
+                        + customer_uid
+                        + """\';""",
+                        "post",
+                        conn,
+                    )
 
-                items = execute("""SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'""" +
-                                customer_uid + """\'""", 'get', conn)
-                print('items2',items)
+                items = execute(
+                    """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+                    + customer_uid
+                    + """\'""",
+                    "get",
+                    conn,
+                )
+                print("items2", items)
                 baseUri = "https://www.googleapis.com/calendar/v3/calendars/primary/events?orderBy=startTime&singleEvents=true&"
-                print('items2',baseUri)
-                timeMaxMin = "timeMax="+end+"&timeMin="+start
+                print("items2", baseUri)
+                timeMaxMin = "timeMax=" + end + "&timeMin=" + start
                 print(timeMaxMin)
-                url = baseUri + timeMaxMin 
+                url = baseUri + timeMaxMin
                 print(url)
-                bearerString = "Bearer " + \
-                    items['result'][0]['user_access_token']
+                bearerString = "Bearer " + items["result"][0]["user_access_token"]
                 print(bearerString)
-                headers = {"Authorization": bearerString,
-                           "Accept": "application/json"}
+                headers = {"Authorization": bearerString, "Accept": "application/json"}
                 print(headers)
                 response = requests.get(url, headers=headers)
-                
+
                 print(response)
-                
+
                 response.raise_for_status()
-                calendars = response.json().get('items')
+                calendars = response.json().get("items")
                 return calendars
 
         except:
-            raise BadRequest('Request failed, please try again later.')
+            raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
 
 # SEND EMAIL
 class SendEmail(Resource):
@@ -1331,37 +1575,47 @@ class SendEmail(Resource):
             conn = connect()
 
             # Send email to Client
-            msg = Message("Thanks for your Email!", sender='support@nityaayurveda.com', recipients=[email])
-            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
-            msg.body = "Hi !\n\n"\
-            "We are looking forward to meeting with you! \n"\
-            "Email Leena@nityaayurveda.com if you need to get in touch with us directly.\n" \
-            "Thx - Nitya Ayurveda\n\n" 
-            # print('msg-bd----', msg.body) 
+            msg = Message(
+                "Thanks for your Email!",
+                sender="support@nityaayurveda.com",
+                recipients=[email],
+            )
+            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+            msg.body = (
+                "Hi !\n\n"
+                "We are looking forward to meeting with you! \n"
+                "Email Leena@nityaayurveda.com if you need to get in touch with us directly.\n"
+                "Thx - Nitya Ayurveda\n\n"
+            )
+            # print('msg-bd----', msg.body)
             mail.send(msg)
 
             # print("first email sent")
             # Send email to Host
-            msg = Message("New Email from Website!", sender='support@nityaayurveda.com', recipients=["Lmarathay@yahoo.com"])
-            msg.body = "Hi !\n\n"\
-            "You just got an email from your website! \n"\
-            "Here are the particulars:\n"\
-            "Name:      " + name + "\n"\
-            "Email:     " + email + "\n"\
-            "Phone:     " + phone + "\n"\
-            "Subject:   " + subject + "\n"\
-
-            "Thx - Nitya Ayurveda\n\n" 
-            # print('msg-bd----', msg.body) 
+            msg = Message(
+                "New Email from Website!",
+                sender="support@nityaayurveda.com",
+                recipients=["Lmarathay@yahoo.com"],
+            )
+            msg.body = (
+                "Hi !\n\n"
+                "You just got an email from your website! \n"
+                "Here are the particulars:\n"
+                "Name:      " + name + "\n"
+                "Email:     " + email + "\n"
+                "Phone:     " + phone + "\n"
+                "Subject:   " + subject + "\n"
+            )
+            "Thx - Nitya Ayurveda\n\n"
+            # print('msg-bd----', msg.body)
             mail.send(msg)
 
             return "Email Sent", 200
 
         except:
-            raise BadRequest('Request failed, please try again later.')
+            raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
-
 
     def post(self):
 
@@ -1370,20 +1624,26 @@ class SendEmail(Resource):
 
             data = request.get_json(force=True)
             print(data)
-            email = data['email']
-            
+            email = data["email"]
+
             # msg = Message("Thanks for your Email!", sender='pmarathay@manifestmy.space', recipients=[email])
             # msg = Message("Thanks for your Email!", sender='info@infiniteoptions.com', recipients=[email])
             # msg = Message("Thanks for your Email!", sender='leena@nityaayurveda.com', recipients=[email])
             # msg = Message("Thanks for your Email!", sender='pmarathay@buildsuccess.org', recipients=[email])
-            msg = Message("Thanks for your Email!", sender='support@nityaayurveda.com', recipients=[email])
-            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"]) 
-            msg.body = "Hi !\n\n"\
-            "We are looking forward to meeting with you! \n"\
-            "Email support@nityaayurveda.com if you need to get in touch with us directly.\n" \
-            "Thx - Nitya Ayurveda\n\n" 
-            # print('msg-bd----', msg.body) 
-            # print('msg-') 
+            msg = Message(
+                "Thanks for your Email!",
+                sender="support@nityaayurveda.com",
+                recipients=[email],
+            )
+            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+            msg.body = (
+                "Hi !\n\n"
+                "We are looking forward to meeting with you! \n"
+                "Email support@nityaayurveda.com if you need to get in touch with us directly.\n"
+                "Thx - Nitya Ayurveda\n\n"
+            )
+            # print('msg-bd----', msg.body)
+            # print('msg-')
             mail.send(msg)
 
             # Send email to Host
@@ -1401,9 +1661,37 @@ class SendEmail(Resource):
             return "Email Sent", 200
 
         except:
-            raise BadRequest('Request failed, please try again later.')
+            raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
+
+class RegistrationConfirmation(Resource):
+    def post(self, email):
+        try:
+            conn = connect()
+
+            msg = Message(
+                subject="Nitya Ayurveda Workshop Registration",
+                sender="support@nityaayurveda.com",
+                recipients=[email],
+            )
+
+            msg.body = (
+                "Hello!\n\n"
+                "This is your registration confirmation for the ‘Eating Right for Your Body Type’ - In-person / online Workshop. \n\n"
+                + "Email support@nityaayurveda.com if you run into any problems or have any questions.\n"
+                "Thanks - Nitya Ayurveda"
+            )
+
+            print(msg.body)
+            mail.send(msg)
+            return "Email Sent"
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
 
 # ACCOUNT QUERIES
 class findCustomerUID(Resource):
@@ -1425,8 +1713,12 @@ class findCustomerUID(Resource):
                         customer_phone_num,
                         customer_email
                     FROM nitya.customers 
-                    WHERE customer_phone_num = \'""" + phone + """\'
-                        OR customer_email = \'""" + email + """\';
+                    WHERE customer_phone_num = \'"""
+                + phone
+                + """\'
+                        OR customer_email = \'"""
+                + email
+                + """\';
                 """
             )
             items = execute(query, "get", conn)
@@ -1442,6 +1734,7 @@ class findCustomerUID(Resource):
             raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
 
 class createAccount(Resource):
     def post(self):
@@ -1528,7 +1821,9 @@ class createAccount(Resource):
                     """
                         SELECT user_access_token, user_refresh_token, mobile_access_token, mobile_refresh_token 
                         FROM nitya.customers
-                        WHERE customer_uid = \'""" + cust_id + """\';
+                        WHERE customer_uid = \'"""
+                    + cust_id
+                    + """\';
                     """
                 )
                 it = execute(query, "get", conn)
@@ -1550,25 +1845,61 @@ class createAccount(Resource):
                     """
                         UPDATE nitya.customers 
                         SET 
-                        customer_created_at = \'"""+ (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")+ """\',
-                        customer_first_name = \'"""+ firstName+ """\',
-                        customer_last_name = \'"""+ lastName+ """\',
-                        customer_phone_num = \'"""+ phone+ """\',
-                        customer_address = \'"""+ address+ """\',
-                        customer_unit = \'"""+ unit+ """\',
-                        customer_city = \'"""+ city+ """\',
-                        customer_state = \'"""+ state+ """\',
-                        customer_zip = \'"""+ zip_code+ """\',
-                        customer_lat = \'"""+ latitude+ """\',
-                        customer_long = \'"""+ longitude+ """\',
-                        password_salt = \'"""+ salt+ """\',
-                        password_hashed = \'"""+ password+ """\',
-                        password_algorithm = \'"""+ algorithm+ """\',
-                        referral_source = \'"""+ referral+ """\',
-                        role = \'"""+ role+ """\',
-                        user_social_media = \'"""+ user_social_signup+ """\',
+                        customer_created_at = \'"""
+                    + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                    + """\',
+                        customer_first_name = \'"""
+                    + firstName
+                    + """\',
+                        customer_last_name = \'"""
+                    + lastName
+                    + """\',
+                        customer_phone_num = \'"""
+                    + phone
+                    + """\',
+                        customer_address = \'"""
+                    + address
+                    + """\',
+                        customer_unit = \'"""
+                    + unit
+                    + """\',
+                        customer_city = \'"""
+                    + city
+                    + """\',
+                        customer_state = \'"""
+                    + state
+                    + """\',
+                        customer_zip = \'"""
+                    + zip_code
+                    + """\',
+                        customer_lat = \'"""
+                    + latitude
+                    + """\',
+                        customer_long = \'"""
+                    + longitude
+                    + """\',
+                        password_salt = \'"""
+                    + salt
+                    + """\',
+                        password_hashed = \'"""
+                    + password
+                    + """\',
+                        password_algorithm = \'"""
+                    + algorithm
+                    + """\',
+                        referral_source = \'"""
+                    + referral
+                    + """\',
+                        role = \'"""
+                    + role
+                    + """\',
+                        user_social_media = \'"""
+                    + user_social_signup
+                    + """\',
                         social_timestamp  =  DATE_ADD(now() , INTERVAL 14 DAY)
-                        WHERE customer_uid = \'"""+ cust_id+ """\';
+                        WHERE customer_uid = \'"""
+                    + cust_id
+                    + """\';
                     """
                 ]
 
@@ -1634,32 +1965,80 @@ class createAccount(Resource):
                         VALUES
                         (
                         
-                            \'"""+ NewUserID+ """\',
-                            \'"""+ (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")+ """\',
-                            \'"""+ firstName+ """\',
-                            \'"""+ lastName+ """\',
-                            \'"""+ phone+ """\',
-                            \'"""+ email+ """\',
-                            \'"""+ address+ """\',
-                            \'"""+ unit+ """\',
-                            \'"""+ city+ """\',
-                            \'"""+ state+ """\',
-                            \'"""+ zip_code+ """\',
-                            \'"""+ latitude+ """\',
-                            \'"""+ longitude+ """\',
-                            \'"""+ salt+ """\',
-                            \'"""+ password+ """\',
-                            \'"""+ algorithm+ """\',
-                            \'"""+ referral+ """\',
-                            \'"""+ role+ """\',
-                            \'"""+ user_social_signup+ """\',
-                            \'"""+ user_access_token+ """\',
+                            \'"""
+                    + NewUserID
+                    + """\',
+                            \'"""
+                    + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                    + """\',
+                            \'"""
+                    + firstName
+                    + """\',
+                            \'"""
+                    + lastName
+                    + """\',
+                            \'"""
+                    + phone
+                    + """\',
+                            \'"""
+                    + email
+                    + """\',
+                            \'"""
+                    + address
+                    + """\',
+                            \'"""
+                    + unit
+                    + """\',
+                            \'"""
+                    + city
+                    + """\',
+                            \'"""
+                    + state
+                    + """\',
+                            \'"""
+                    + zip_code
+                    + """\',
+                            \'"""
+                    + latitude
+                    + """\',
+                            \'"""
+                    + longitude
+                    + """\',
+                            \'"""
+                    + salt
+                    + """\',
+                            \'"""
+                    + password
+                    + """\',
+                            \'"""
+                    + algorithm
+                    + """\',
+                            \'"""
+                    + referral
+                    + """\',
+                            \'"""
+                    + role
+                    + """\',
+                            \'"""
+                    + user_social_signup
+                    + """\',
+                            \'"""
+                    + user_access_token
+                    + """\',
                             DATE_ADD(now() , INTERVAL 14 DAY),
-                            \'"""+ user_refresh_token+ """\',
-                            \'"""+ mobile_access_token+ """\',
-                            \'"""+ mobile_refresh_token+ """\',
-                            \'"""+ social_id+ """\');"""
-                        ]
+                            \'"""
+                    + user_refresh_token
+                    + """\',
+                            \'"""
+                    + mobile_access_token
+                    + """\',
+                            \'"""
+                    + mobile_refresh_token
+                    + """\',
+                            \'"""
+                    + social_id
+                    + """\');"""
+                ]
             print(customer_insert_query[0])
             items = execute(customer_insert_query[0], "post", conn)
 
@@ -1695,38 +2074,38 @@ class createAccount(Resource):
 
             # query = (
             #     """
-            #         INSERT INTO nitya.coupons 
+            #         INSERT INTO nitya.coupons
             #         (
-            #             coupon_uid, 
-            #             coupon_id, 
-            #             valid, 
-            #             discount_percent, 
-            #             discount_amount, 
-            #             discount_shipping, 
-            #             expire_date, 
-            #             limits, 
-            #             notes, 
-            #             num_used, 
-            #             recurring, 
-            #             email_id, 
-            #             cup_business_uid, 
+            #             coupon_uid,
+            #             coupon_id,
+            #             valid,
+            #             discount_percent,
+            #             discount_amount,
+            #             discount_shipping,
+            #             expire_date,
+            #             limits,
+            #             notes,
+            #             num_used,
+            #             recurring,
+            #             email_id,
+            #             cup_business_uid,
             #             threshold
-            #         ) 
-            #         VALUES 
-            #         ( 
-            #             \'"""+ couponID+ """\', 
-            #             'NewCustomer', 
-            #             'TRUE', 
-            #             '0', 
-            #             '0', 
-            #             '5', 
-            #             \'"""+ exp_time+ """\', 
-            #             '1', 
-            #             'Welcome Coupon', 
-            #             '0', 
-            #             'F', 
-            #             \'"""+ email+ """\', 
-            #             'null', 
+            #         )
+            #         VALUES
+            #         (
+            #             \'"""+ couponID+ """\',
+            #             'NewCustomer',
+            #             'TRUE',
+            #             '0',
+            #             '0',
+            #             '5',
+            #             \'"""+ exp_time+ """\',
+            #             '1',
+            #             'Welcome Coupon',
+            #             '0',
+            #             'F',
+            #             \'"""+ email+ """\',
+            #             'null',
             #             '0'
             #         );
             #         """
@@ -1753,6 +2132,7 @@ class createAccount(Resource):
         finally:
             disconnect(conn)
 
+
 class AccountSalt(Resource):
     def post(self):
         response = {}
@@ -1769,7 +2149,9 @@ class AccountSalt(Resource):
                             password_salt,
                             user_social_media 
                     FROM nitya.customers cus
-                    WHERE customer_email = \'""" + email + """\';
+                    WHERE customer_email = \'"""
+                + email
+                + """\';
                 """
             )
             items = execute(query, "get", conn)
@@ -1793,6 +2175,7 @@ class AccountSalt(Resource):
             raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
 
 class Login(Resource):
     def post(self):
@@ -1821,7 +2204,9 @@ class Login(Resource):
                         user_refresh_token,
                         social_id
                     FROM nitya.customers c
-                    WHERE customer_email = \'""" + email + """\';
+                    WHERE customer_email = \'"""
+                + email
+                + """\';
                 """
             )
             items = execute(query, "get", conn)
@@ -1912,7 +2297,9 @@ class Login(Resource):
                 del items["result"][0]["email_verified"]
 
                 query = (
-                    "SELECT * from nitya.customers WHERE customer_email = '" + email + "';"
+                    "SELECT * from nitya.customers WHERE customer_email = '"
+                    + email
+                    + "';"
                 )
                 items = execute(query, "get", conn)
                 items["message"] = "Authenticated successfully."
@@ -1924,14 +2311,15 @@ class Login(Resource):
         finally:
             disconnect(conn)
 
+
 class stripe_key(Resource):
-    
-    def get(self, desc):    
-        print(desc)      
-        if desc == 'NITYATEST':
-            return {'publicKey': stripe_public_test_key} 
-        else:             
-            return {'publicKey': stripe_public_live_key} 
+    def get(self, desc):
+        print(desc)
+        if desc == "NITYATEST":
+            return {"publicKey": stripe_public_test_key}
+        else:
+            return {"publicKey": stripe_public_live_key}
+
 
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
@@ -1947,28 +2335,36 @@ api.add_resource(UploadImage, "/api/v2/uploadImage")
 api.add_resource(DeleteBlog, "/api/v2/deleteBlog/<string:blog_id>")
 
 
-
-api.add_resource(OneCustomerAppointments, "/api/v2/oneCustomerAppointments/<string:customer_uid>")
+api.add_resource(
+    OneCustomerAppointments, "/api/v2/oneCustomerAppointments/<string:customer_uid>"
+)
 api.add_resource(CreateAppointment, "/api/v2/createAppointment")
 api.add_resource(AddTreatment, "/api/v2/addTreatment")
 
-api.add_resource(GoogleCalenderEvents,
-                 '/api/v2/calenderEvents/<string:customer_uid>,<string:start>,<string:end>')
-api.add_resource(UpdateAccessToken, '/api/v2/UpdateAccessToken/<string:customer_uid>')
-api.add_resource(CustomerToken,
-                 '/api/v2/customerToken/<string:customer_uid>')
-api.add_resource(AvailableAppointments, "/api/v2/availableAppointments/<string:date_value>/<string:duration>")
+api.add_resource(
+    GoogleCalenderEvents,
+    "/api/v2/calenderEvents/<string:customer_uid>,<string:start>,<string:end>",
+)
+api.add_resource(UpdateAccessToken, "/api/v2/UpdateAccessToken/<string:customer_uid>")
+api.add_resource(CustomerToken, "/api/v2/customerToken/<string:customer_uid>")
+api.add_resource(
+    AvailableAppointments,
+    "/api/v2/availableAppointments/<string:date_value>/<string:duration>",
+)
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
 api.add_resource(SendEmail, "/api/v2/sendEmail")
+api.add_resource(
+    RegistrationConfirmation, "/api/v2/RegistrationConfirmation/<string:email>"
+)
 
-
+api.add_resource(SeminarRegister, "/api/v2/SeminarRegister")
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
 api.add_resource(Login, "/api/v2/Login/")
-api.add_resource(stripe_key, '/api/v2/stripe_key/<string:desc>')
+api.add_resource(stripe_key, "/api/v2/stripe_key/<string:desc>")
 
 
 # Run on below IP address and port
