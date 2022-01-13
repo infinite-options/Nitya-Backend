@@ -504,81 +504,6 @@ class AddBlog(Resource):
             disconnect(conn)
 
 
-class SeminarRegister(Resource):
-    def post(self):
-        response = {}
-        items = {}
-        try:
-            conn = connect()
-            data = request.get_json(force=True)
-            # print to Received data to Terminal
-            print("Received:", data)
-
-            first_name = data["first_name"]
-            # print(first_name)
-            last_name = data["last_name"]
-            # print(last_name)
-            email = data["email"]
-            # print(email)
-            city = data["city"]
-            # print(city)
-            state = data["state"]
-            # print(state)
-
-            mode = data["mode"]
-            # print(mode)
-
-            print("Data Received")
-
-            query = ["CALL nitya.new_seminar_uid;"]
-            print(query)
-            NewIDresponse = execute(query[0], "get", conn)
-            print(NewIDresponse)
-            NewID = NewIDresponse["result"][0]["new_id"]
-            print("NewID = ", NewID)
-
-            query = (
-                """
-                    INSERT INTO nitya.seminar
-                    SET seminar_uid  = \'"""
-                + NewID
-                + """\',
-                        first_name = \'"""
-                + first_name
-                + """\',
-                        last_name = \'"""
-                + last_name
-                + """\',
-                        email = \'"""
-                + email
-                + """\',
-                        city = \'"""
-                + city
-                + """\',
-                        state = \'"""
-                + state
-                + """\',
-                        mode = \'"""
-                + mode
-                + """\';
-                    """
-            )
-
-            items = execute(query, "post", conn)
-            print(items)
-
-            if items["code"] == 281:
-                response["message"] = "Registration successful"
-                return response, 200
-            else:
-                return items
-
-        except:
-            raise BadRequest("Request failed, please try again later.")
-        finally:
-            disconnect(conn)
-
-
 class UploadImage(Resource):
     def post(self):
         try:
@@ -1666,33 +1591,6 @@ class SendEmail(Resource):
             disconnect(conn)
 
 
-class RegistrationConfirmation(Resource):
-    def post(self, email):
-        try:
-            conn = connect()
-
-            msg = Message(
-                subject="Nitya Ayurveda Workshop Registration",
-                sender="support@nityaayurveda.com",
-                recipients=[email],
-            )
-
-            msg.body = (
-                "Hello!\n\n"
-                "This is your registration confirmation for the ‘Eating Right for Your Body Type’ - In-person / online Workshop. \n\n"
-                + "Email support@nityaayurveda.com if you run into any problems or have any questions.\n"
-                "Thanks - Nitya Ayurveda"
-            )
-
-            print(msg.body)
-            mail.send(msg)
-            return "Email Sent"
-        except:
-            raise BadRequest("Request failed, please try again later.")
-        finally:
-            disconnect(conn)
-
-
 # ACCOUNT QUERIES
 class findCustomerUID(Resource):
     def post(self):
@@ -2321,6 +2219,140 @@ class stripe_key(Resource):
             return {"publicKey": stripe_public_live_key}
 
 
+# -- SEMINAR ---------------------------------
+
+
+class SeminarRegister(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            first_name = data["first_name"]
+            # print(first_name)
+            last_name = data["last_name"]
+            # print(last_name)
+            email = data["email"]
+            # print(email)
+            city = data["city"]
+            # print(city)
+            state = data["state"]
+            # print(state)
+
+            mode = data["mode"]
+            # print(mode)
+
+            print("Data Received")
+
+            query = ["CALL nitya.new_seminar_uid;"]
+            print(query)
+            NewIDresponse = execute(query[0], "get", conn)
+            print(NewIDresponse)
+            NewID = NewIDresponse["result"][0]["new_id"]
+            print("NewID = ", NewID)
+
+            query = (
+                """
+                    INSERT INTO nitya.seminar
+                    SET seminar_uid  = \'"""
+                + NewID
+                + """\',
+                        first_name = \'"""
+                + first_name
+                + """\',
+                        last_name = \'"""
+                + last_name
+                + """\',
+                        email = \'"""
+                + email
+                + """\',
+                        city = \'"""
+                + city
+                + """\',
+                        state = \'"""
+                + state
+                + """\',
+                        mode = \'"""
+                + mode
+                + """\';
+                    """
+            )
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Registration successful"
+                return response, 200
+            else:
+                return items
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class WorkshopAttendees(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 1
+            query = """  
+                SELECT 
+                    CONCAT(first_name, ' ', last_name) as name, 
+                    email, 
+                    CONCAT(city, ',',state) as city, 
+                    mode
+                FROM nitya.seminar;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest("Appointments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class RegistrationConfirmation(Resource):
+    def post(self, email):
+        try:
+            conn = connect()
+
+            msg = Message(
+                subject="Nitya Ayurveda Workshop Registration",
+                sender="support@nityaayurveda.com",
+                recipients=[email, "Lmarathay@gmail.com"],
+            )
+
+            msg.body = (
+                "Hello!\n\n"
+                "This is your registration confirmation for the ‘Eating Right for Your Body Type’ - In-person / online Workshop. \n"
+                "Email support@nityaayurveda.com if you run into any problems or have any questions.\n"
+                "Thanks - Nitya Ayurveda"
+            )
+
+            print(msg.body)
+            mail.send(msg)
+            return "Email Sent"
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
 
@@ -2355,17 +2387,18 @@ api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
 api.add_resource(SendEmail, "/api/v2/sendEmail")
-api.add_resource(
-    RegistrationConfirmation, "/api/v2/RegistrationConfirmation/<string:email>"
-)
 
-api.add_resource(SeminarRegister, "/api/v2/SeminarRegister")
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
 api.add_resource(Login, "/api/v2/Login/")
 api.add_resource(stripe_key, "/api/v2/stripe_key/<string:desc>")
 
+api.add_resource(SeminarRegister, "/api/v2/SeminarRegister")
+api.add_resource(WorkshopAttendees, "/api/v2/WorkshopAttendees")
+api.add_resource(
+    RegistrationConfirmation, "/api/v2/RegistrationConfirmation/<string:email>"
+)
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
