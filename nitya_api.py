@@ -88,7 +88,6 @@ app = Flask(__name__, template_folder="assets")
 
 # --------------- Stripe Variables ------------------
 # these key are using for testing. Customer should use their stripe account's keys instead
-import stripe
 
 
 # STRIPE AND PAYPAL KEYS
@@ -155,6 +154,8 @@ utc = pytz.utc
 # def getNow(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d %H:%M:%S")
 
 # # These statment return Day and Time in Local Time - Not sure about PST vs PDT
+
+
 def getToday():
     return datetime.strftime(datetime.now(), "%Y-%m-%d")
 
@@ -202,6 +203,8 @@ TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
 
 # Connect to MySQL database (API v2)
+
+
 def connect():
     global RDS_PW
     global RDS_HOST
@@ -352,7 +355,8 @@ class appointments(Resource):
             # Returns code and response
             return response, 200
         except:
-            raise BadRequest("Appointments Request failed, please try again later.")
+            raise BadRequest(
+                "Appointments Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -413,7 +417,8 @@ class treatments(Resource):
             # Returns code and response
             return response, 200
         except:
-            raise BadRequest("Treatments Request failed, please try again later.")
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -519,7 +524,8 @@ class UploadImage(Resource):
             print(key)
 
             filename = (
-                "https://s3-us-west-1.amazonaws.com/" + str(bucket) + "/" + str(key)
+                "https://s3-us-west-1.amazonaws.com/" +
+                str(bucket) + "/" + str(key)
             )
 
             upload_file = s3.put_object(
@@ -559,7 +565,8 @@ class FullBlog(Resource):
             response["result"] = items["result"]
             return response, 200
         except:
-            raise BadRequest("Full Blog Request failed, please try again later.")
+            raise BadRequest(
+                "Full Blog Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -583,7 +590,8 @@ class TruncatedBlog(Resource):
             response["result"] = items["result"]
             return response, 200
         except:
-            raise BadRequest("Specific Blog Request failed, please try again later.")
+            raise BadRequest(
+                "Specific Blog Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1079,7 +1087,8 @@ class AvailableAppointments(Resource):
             return available_times
 
         except:
-            raise BadRequest("Available Time Request failed, please try again later.")
+            raise BadRequest(
+                "Available Time Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1162,7 +1171,8 @@ class Calendar(Resource):
             available_times = execute(query, "get", conn)
             print("Available Times: ", str(available_times["result"]))
             print("Number of time slots: ", len(available_times["result"]))
-            print("Available Times: ", str(available_times["result"][0]["appt_start"]))
+            print("Available Times: ", str(
+                available_times["result"][0]["appt_start"]))
 
             return available_times["result"]
 
@@ -1233,7 +1243,8 @@ class Calendar(Resource):
             #  - datetime.strptime(appt['appt_start']))
 
         except:
-            raise BadRequest("Available Time Request failed, please try again later.")
+            raise BadRequest(
+                "Available Time Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1393,8 +1404,10 @@ class GoogleCalenderEvents(Resource):
                 baseUri = "https://www.googleapis.com/calendar/v3/calendars/primary/events?orderBy=startTime&"
                 timeMaxMin = "timeMax=" + end + "&timeMin=" + start
                 url = baseUri + timeMaxMin
-                bearerString = "Bearer " + items["result"][0]["user_access_token"]
-                headers = {"Authorization": bearerString, "Accept": "application/json"}
+                bearerString = "Bearer " + \
+                    items["result"][0]["user_access_token"]
+                headers = {"Authorization": bearerString,
+                           "Accept": "application/json"}
                 response = requests.get(url, headers=headers)
                 response.raise_for_status()
                 calendars = response.json().get("items")
@@ -1402,7 +1415,8 @@ class GoogleCalenderEvents(Resource):
 
             else:
                 print("in else")
-                access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
+                access_issue_min = int(
+                    items["result"][0]["access_expires_in"]) / 60
                 print("in else", access_issue_min)
                 print("in else", items["result"][0]["social_timestamp"])
                 social_timestamp = datetime.strptime(
@@ -1471,9 +1485,11 @@ class GoogleCalenderEvents(Resource):
                 print(timeMaxMin)
                 url = baseUri + timeMaxMin
                 print(url)
-                bearerString = "Bearer " + items["result"][0]["user_access_token"]
+                bearerString = "Bearer " + \
+                    items["result"][0]["user_access_token"]
                 print(bearerString)
-                headers = {"Authorization": bearerString, "Accept": "application/json"}
+                headers = {"Authorization": bearerString,
+                           "Accept": "application/json"}
                 print(headers)
                 response = requests.get(url, headers=headers)
 
@@ -1649,7 +1665,8 @@ class createAccount(Resource):
             address = data["address"]
             unit = data["unit"] if data.get("unit") is not None else "NULL"
             social_id = (
-                data["social_id"] if data.get("social_id") is not None else "NULL"
+                data["social_id"] if data.get(
+                    "social_id") is not None else "NULL"
             )
             city = data["city"]
             state = data["state"]
@@ -1658,7 +1675,8 @@ class createAccount(Resource):
             longitude = data["longitude"]
             referral = data["referral_source"]
             role = data["role"]
-            cust_id = data["cust_id"] if data.get("cust_id") is not None else "NULL"
+            cust_id = data["cust_id"] if data.get(
+                "cust_id") is not None else "NULL"
 
             if (
                 data.get("social") is None
@@ -1690,7 +1708,8 @@ class createAccount(Resource):
 
                 salt = (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
 
-                password = sha512((data["password"] + salt).encode()).hexdigest()
+                password = sha512(
+                    (data["password"] + salt).encode()).hexdigest()
                 print("password------", password)
                 algorithm = "SHA512"
                 mobile_access_token = "NULL"
@@ -2245,6 +2264,10 @@ class SeminarRegister(Resource):
 
             mode = data["mode"]
             # print(mode)
+            notes = data["notes"]
+            # print(mode)
+            donation = data["donation"]
+            # print(mode)
 
             print("Data Received")
 
@@ -2277,7 +2300,11 @@ class SeminarRegister(Resource):
                 + state
                 + """\',
                         mode = \'"""
-                + mode
+                + mode + """\',
+                        notes = \'"""
+                + notes + """\',
+                        donation = \'"""
+                + '$'+donation
                 + """\';
                     """
             )
@@ -2321,7 +2348,8 @@ class WorkshopAttendees(Resource):
             # Returns code and response
             return response, 200
         except:
-            raise BadRequest("Appointments Request failed, please try again later.")
+            raise BadRequest(
+                "Appointments Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -2334,6 +2362,7 @@ class RegistrationConfirmation(Resource):
             msg = Message(
                 subject="Nitya Ayurveda Workshop Registration",
                 sender="support@nityaayurveda.com",
+                # recipients=[email]
                 recipients=[email, "Lmarathay@gmail.com"],
             )
 
@@ -2377,7 +2406,8 @@ api.add_resource(
     GoogleCalenderEvents,
     "/api/v2/calenderEvents/<string:customer_uid>,<string:start>,<string:end>",
 )
-api.add_resource(UpdateAccessToken, "/api/v2/UpdateAccessToken/<string:customer_uid>")
+api.add_resource(UpdateAccessToken,
+                 "/api/v2/UpdateAccessToken/<string:customer_uid>")
 api.add_resource(CustomerToken, "/api/v2/customerToken/<string:customer_uid>")
 api.add_resource(
     AvailableAppointments,
