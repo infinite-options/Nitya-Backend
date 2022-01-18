@@ -2363,7 +2363,8 @@ class RegistrationConfirmation(Resource):
                 subject="Nitya Ayurveda Workshop Registration",
                 sender="support@nityaayurveda.com",
                 # recipients=[email]
-                recipients=[email, "Lmarathay@gmail.com"],
+                recipients=[email, "Lmarathay@gmail.com",
+                            "pmarathay@gmail.com"],
             )
 
             msg.body = (
