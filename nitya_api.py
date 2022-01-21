@@ -2269,6 +2269,8 @@ class SeminarRegister(Resource):
             donation = data["donation"]
             # print(mode)
 
+            num_attendees = data["num_attendees"]
+
             print("Data Received")
 
             query = ["CALL nitya.new_seminar_uid;"]
@@ -2305,7 +2307,9 @@ class SeminarRegister(Resource):
                 + notes + """\',
                         donation = \'"""
                 + '$'+donation
-                + """\';
+                + """\',
+                        num_attendees = \'"""
+                + num_attendees + """\';
                     """
             )
 
@@ -2318,6 +2322,79 @@ class SeminarRegister(Resource):
             else:
                 return items
 
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class UpdateRegister(Resource):
+    def post(self, seminar_id):
+        print("\nInside update")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            print("Inside try block")
+            print("Received:", seminar_id)
+            data = request.get_json(force=True)
+            donation = data["donation"]
+
+            query = (
+                """
+                    UPDATE nitya.seminar
+                    SET donation = \'"""
+                + '$'+donation + """\'
+                    WHERE seminar_uid = \'"""
+                + seminar_id
+                + """\';
+                    """
+            )
+
+            products = execute(query, "post", conn)
+            print("Back in class")
+            print(products)
+            return products["code"]
+
+        except:
+            raise BadRequest("Delete Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class findSeminarUID(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            conn = connect()
+
+            data = request.get_json(force=True)
+            print(data)
+
+            email = data["email"]
+            query = (
+                """
+                    # QUERY 5
+                    
+                    SELECT seminar_uid,
+                        email
+                    FROM nitya.seminar
+                    WHERE email = \'"""
+                + email
+                + """\';
+                """
+            )
+            items = execute(query, "get", conn)
+            print(items)
+            if not items["result"]:
+                items["message"] = "Email and Phone Number do not exist"
+                items["code"] = 404
+                return items
+            items["message"] = "Customer Found"
+            items["code"] = 200
+            return items
         except:
             raise BadRequest("Request failed, please try again later.")
         finally:
@@ -2337,7 +2414,8 @@ class WorkshopAttendees(Resource):
                     CONCAT(first_name, ' ', last_name) as name, 
                     email, 
                     CONCAT(city, ',',state) as city, 
-                    mode
+                    mode,
+                    num_attenedees
                 FROM nitya.seminar;
                 """
             # The query is executed here
@@ -2358,7 +2436,8 @@ class RegistrationConfirmation(Resource):
     def post(self, email):
         try:
             conn = connect()
-
+            data = request.get_json(force=True)
+            name = data["name"]
             msg = Message(
                 subject="Nitya Ayurveda Workshop Registration",
                 sender="support@nityaayurveda.com",
@@ -2368,7 +2447,7 @@ class RegistrationConfirmation(Resource):
             )
 
             msg.body = (
-                "Hello!\n\n"
+                "Hello" + str(name) + "\n"
                 "This is your registration confirmation for the ‘Eating Right for Your Body Type’ - In-person / online Workshop. \n"
                 "Email support@nityaayurveda.com if you run into any problems or have any questions.\n"
                 "Thanks - Nitya Ayurveda"
@@ -2426,6 +2505,9 @@ api.add_resource(Login, "/api/v2/Login/")
 api.add_resource(stripe_key, "/api/v2/stripe_key/<string:desc>")
 
 api.add_resource(SeminarRegister, "/api/v2/SeminarRegister")
+api.add_resource(UpdateRegister, "/api/v2/UpdateRegister/<string:seminar_id>")
+api.add_resource(findSeminarUID, "/api/v2/findSeminarUID")
+
 api.add_resource(WorkshopAttendees, "/api/v2/WorkshopAttendees")
 api.add_resource(
     RegistrationConfirmation, "/api/v2/RegistrationConfirmation/<string:email>"
