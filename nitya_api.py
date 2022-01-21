@@ -2447,7 +2447,7 @@ class RegistrationConfirmation(Resource):
             )
 
             msg.body = (
-                "Hello" + str(name) + "\n"
+                "Hello " + str(name) + "\n"
                 "This is your registration confirmation for the ‘Eating Right for Your Body Type’ - In-person / online Workshop. \n"
                 "Email support@nityaayurveda.com if you run into any problems or have any questions.\n"
                 "Thanks - Nitya Ayurveda"
