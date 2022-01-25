@@ -2268,7 +2268,10 @@ class SeminarRegister(Resource):
             # print(mode)
             donation = data["donation"]
             # print(mode)
-
+            if(len(donation) == 0):
+                donation = str(0)
+            else:
+                donation = donation
             num_attendees = data["num_attendees"]
 
             print("Data Received")
@@ -2279,7 +2282,7 @@ class SeminarRegister(Resource):
             print(NewIDresponse)
             NewID = NewIDresponse["result"][0]["new_id"]
             print("NewID = ", NewID)
-
+            print(donation)
             query = (
                 """
                     INSERT INTO nitya.seminar
@@ -2306,8 +2309,7 @@ class SeminarRegister(Resource):
                         notes = \'"""
                 + notes + """\',
                         donation = \'"""
-                + '$'+donation
-                + """\',
+                + donation + """\',
                         num_attendees = \'"""
                 + num_attendees + """\';
                     """
@@ -2345,7 +2347,7 @@ class UpdateRegister(Resource):
                 """
                     UPDATE nitya.seminar
                     SET donation = \'"""
-                + '$'+donation + """\'
+                + donation + """\'
                     WHERE seminar_uid = \'"""
                 + seminar_id
                 + """\';
@@ -2448,9 +2450,40 @@ class RegistrationConfirmation(Resource):
 
             msg.body = (
                 "Hello " + str(name) + "\n"
-                "This is your registration confirmation for the ‘Eating Right for Your Body Type’ - In-person / online Workshop. \n"
-                "Email support@nityaayurveda.com if you run into any problems or have any questions.\n"
-                "Thanks - Nitya Ayurveda"
+                "\n"
+                "Thank you for registering for the workshop “Eating Right For Your Body Type” on Saturday, January 29th at 2 P.M. Mountain Standard Time. Looking forward to seeing you soon.\n"
+                "\n"
+                "Regards," + "\n"
+                "Leena Marathay" + "\n"
+                "\n"
+                "Here is the Zoom Meeting Detail:" + "\n"
+                "\n"
+                "Leena Marathay is inviting you to a scheduled Zoom meeting." + "\n"
+                "\n"
+                "Topic: Eating Right For Your Body Type" + "\n"
+                "Time: Jan 29, 2022 02: 00 PM Mountain Time(US and Canada)" + "\n"
+                "\n"
+                'Join Zoom Meeting' + "\n"
+                "https: // us02web.zoom.us/j/85853482826?pwd=cWhHZllNOXJKemdlWXpadG1YZFYwQT09" + "\n"
+                "\n"
+                "Meeting ID: 858 5348 2826" + "\n"
+                "Passcode: T3zTn3" + "\n"
+                "One tap mobile" + "\n"
+                " + 13462487799, , 85853482826  # ,,,,*062162# US (Houston)" +
+                "\n"
+                " + 16699006833, , 85853482826  # ,,,,*062162# US (San Jose)" + "\n"
+                "\n"
+                "Dial by your location" + "\n"
+                " + 1 346 248 7799 US(Houston)" + "\n"
+                " + 1 669 900 6833 US(San Jose)" + "\n"
+                ' + 1 253 215 8782 US(Tacoma)' + "\n"
+                " + 1 312 626 6799 US(Chicago)" + "\n"
+                " + 1 929 205 6099 US(New York)" + "\n"
+                " + 1 301 715 8592 US(Washington DC)" + "\n"
+                "Meeting ID: 858 5348 2826"+"\n"
+                "Passcode: 062162"+"\n"
+                "Find your local number: https: // us02web.zoom.us/u/kbyiau6FLS"+"\n"
+
             )
 
             print(msg.body)
