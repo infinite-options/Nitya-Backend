@@ -12,6 +12,7 @@
 # pip3 install pymysql
 # pip3 install python-dateutil
 
+from email import message
 import os
 import uuid
 import boto3
@@ -760,10 +761,20 @@ class CreateAppointment(Resource):
                     """
             )
             items = execute(query2, "post", conn)
-
+            query3 = (
+                """ 
+                    SELECT title FROM nitya.treatments 
+                    WHERE treatment_uid = \'"""
+                + treatment_uid
+                + """\';
+                """
+            )
+            treatment = execute(query3, "get", conn)
+            print(treatment['result'][0]['title'])
             # Send receipt emails
             name = first_name + " " + last_name
-            message = treatment_uid + " " + purchase_price + " " + purchase_date
+            message = treatment['result'][0]['title'] + "," + \
+                purchase_price + "," + datevalue + "," + timevalue
             print(name)
             SendEmail.get(self, name, email, phone_no, message)
 
@@ -1514,21 +1525,31 @@ class SendEmail(Resource):
         print("In Send EMail get")
         try:
             conn = connect()
-
+            print(subject)
+            subject = subject.split(',')
+            print(subject)
             # Send email to Client
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
-                recipients=[email],
+                # recipients=[email],
+                recipients=[email, "Lmarathay@yahoo.com",
+                            "pmarathay@gmail.com"],
             )
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
             msg.body = (
-                "Hi !\n\n"
-                "We are looking forward to meeting with you! \n"
+                "Hello " + str(name) + "," + "\n"
+                "We are looking forward to meeting with you! Below is your appointment information: \n"
+                "Treatment: " + str(subject[0]) + "\n"
+                "Amount Paid: " + str(subject[1]) + "\n"
+                "Treatment Date and Time: " +
+                str(subject[2]) + " at " + str(subject[3]) + "\n"
+                "\n"
                 "Email Leena@nityaayurveda.com if you need to get in touch with us directly.\n"
-                "Thx - Nitya Ayurveda\n\n"
+                "\n"
+                "Thank you - Nitya Ayurveda\n\n"
             )
-            # print('msg-bd----', msg.body)
+            print('msg-bd----', msg.body)
             mail.send(msg)
 
             # print("first email sent")
@@ -1574,7 +1595,8 @@ class SendEmail(Resource):
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
-                recipients=[email],
+                recipients=[email, "Lmarathay@gmail.com",
+                            "pmarathay@gmail.com"],
             )
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
             msg.body = (
