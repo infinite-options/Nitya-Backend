@@ -2143,6 +2143,7 @@ class AccountSalt(Resource):
 class Login(Resource):
     def post(self):
         response = {}
+        print('in login')
         try:
             conn = connect()
             data = request.get_json(force=True)
@@ -2580,7 +2581,7 @@ api.add_resource(SendEmail, "/api/v2/sendEmail")
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
-api.add_resource(Login, "/api/v2/Login/")
+api.add_resource(Login, "/api/v2/Login")
 api.add_resource(stripe_key, "/api/v2/stripe_key/<string:desc>")
 
 api.add_resource(SeminarRegister, "/api/v2/SeminarRegister")
