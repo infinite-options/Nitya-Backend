@@ -343,7 +343,7 @@ class appointments(Resource):
             # Connect to the DataBase
             conn = connect()
             # QUERY 1
-            query = """  
+            query = """
                 SELECT * FROM nitya.customers, nitya.treatments, nitya.appointments
                 WHERE customer_uid = appt_customer_uid
 	                AND treatment_uid = appt_treatment_uid;
@@ -405,10 +405,10 @@ class treatments(Resource):
             # Connect to the DataBase
             conn = connect()
             # QUERY 2
-            query = """  
+            query = """
                 SELECT * FROM  nitya.treatments
                 WHERE availability = "Available"
-                ORDER BY category, display_order; 
+                ORDER BY category, display_order;
                 """
             # The query is executed here
             items = execute(query, "get", conn)
@@ -580,7 +580,7 @@ class TruncatedBlog(Resource):
             conn = connect()
             # QUERY 5
             query = """
-                    SELECT blog_uid, blogCategory, blogTitle, slug, postedOn, author, blogImage, blogSummary, LEFT(blogText, 1200) AS blogText 
+                    SELECT blog_uid, blogCategory, blogTitle, slug, postedOn, author, blogImage, blogSummary, LEFT(blogText, 1200) AS blogText
                     FROM nitya.blog
                     WHERE blogStatus != 'DELETED'
                     ORDER BY postedOn DESC;
@@ -674,11 +674,11 @@ class CreateAppointment(Resource):
 
             #  FIND EXISTING CUSTOMER UID
             query1 = (
-                """ 
-                    SELECT customer_uid FROM nitya.customers 
+                """
+                    SELECT customer_uid FROM nitya.customers
                     WHERE customer_email = \'"""
                 + email
-                + """\' 
+                + """\'
                     AND   customer_phone_num = \'"""
                 + phone_no
                 + """\';
@@ -762,8 +762,8 @@ class CreateAppointment(Resource):
             )
             items = execute(query2, "post", conn)
             query3 = (
-                """ 
-                    SELECT title FROM nitya.treatments 
+                """
+                    SELECT title FROM nitya.treatments
                     WHERE treatment_uid = \'"""
                 + treatment_uid
                 + """\';
@@ -949,12 +949,12 @@ class purchaseDetails(Resource):
             # Connect to the DataBase
             conn = connect()
             # This is the actual query
-            query = """ # QUERY 1 
-                 SELECT appointment_uid,customer_first_name,customer_last_name,customer_phone_num, customer_email,appt_date,appt_time,purchase_price, purchase_date,cost, appt_treatment_uid,title 
-                 FROM appointments 
-                 LEFT JOIN customers 
-                 ON appt_customer_uid = customer_uid 
-                 LEFT JOIN treatments 
+            query = """ # QUERY 1
+                 SELECT appointment_uid,customer_first_name,customer_last_name,customer_phone_num, customer_email,appt_date,appt_time,purchase_price, purchase_date,cost, appt_treatment_uid,title
+                 FROM appointments
+                 LEFT JOIN customers
+                 ON appt_customer_uid = customer_uid
+                 LEFT JOIN treatments
                  ON appt_treatment_uid = treatment_uid; """
 
             # The query is executed here
@@ -1017,7 +1017,7 @@ class AvailableAppointments(Resource):
                                 cast(concat(appt_date, ' ', ADDTIME(appt_time, duration)) as datetime) as end
                             FROM nitya.appointments
                             LEFT JOIN nitya.treatments
-                            ON appt_treatment_uid = treatment_uid    
+                            ON appt_treatment_uid = treatment_uid
                             WHERE appt_date = '"""
                 + date_value
                 + """') AS appt_dur
@@ -1042,9 +1042,9 @@ class AvailableAppointments(Resource):
                         ON TIME(ts.begin_datetime) = openhrs.morning_start_time
                             OR (TIME(ts.begin_datetime) > openhrs.morning_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_datetime) = openhrs.afternoon_start_time
-                            OR (TIME(ts.begin_datetime) > openhrs.afternoon_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.afternoon_end_time,"0:29")) 
+                            OR (TIME(ts.begin_datetime) > openhrs.afternoon_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.afternoon_end_time,"0:29"))
                         )AS taadpa
-                    WHERE ISNULL(taadpa.appointment_uid) 
+                    WHERE ISNULL(taadpa.appointment_uid)
                         AND ISNULL(taadpa.prac_avail_uid)
                         AND !ISNULL(days_uid)
                     )
@@ -1064,21 +1064,21 @@ class AvailableAppointments(Resource):
                             SELECT *
                             FROM ats
                             LEFT JOIN (
-                                SELECT 	
+                                SELECT
                                     row_num as row_num_hr,
                                     begin_time AS begin_time_hr,
                                     end_time AS end_time_hr
                                 FROM ats) AS ats1
                             ON ats.row_num + 1 = ats1.row_num_hr
                             LEFT JOIN (
-                                SELECT 	
+                                SELECT
                                     row_num as row_num_hrhalf,
                                     begin_time AS begin_time_hrhalf,
                                     end_time AS end_time_hrhalf
                                 FROM ats) AS ats2
                             ON ats.row_num + 2 = ats2.row_num_hrhalf
                             LEFT JOIN (
-                                SELECT 	
+                                SELECT
                                     row_num as row_num_twohr,
                                     begin_time AS begin_time_twohr,
                                     end_time AS end_time_twohr
@@ -1117,7 +1117,7 @@ class Calendar(Resource):
             # CALCULATE AVAILABLE TIME SLOTS
             query = (
                 """
-                    SELECT 
+                    SELECT
                         TIME_FORMAT(ts_begin, '%T') AS appt_start,
                         TIME_FORMAT(ts_end, '%T') AS appt_end
                         -- *,
@@ -1144,7 +1144,7 @@ class Calendar(Resource):
                                 cast(concat(appt_date, ' ', ADDTIME(appt_time, duration)) as datetime) as end
                             FROM nitya.appointments
                             LEFT JOIN nitya.treatments
-                            ON appt_treatment_uid = treatment_uid    
+                            ON appt_treatment_uid = treatment_uid
                             WHERE appt_date = '"""
                 + date_value
                 + """') AS appt_dur
@@ -1171,9 +1171,9 @@ class Calendar(Resource):
                         ON TIME(ts.begin_time) = openhrs.morning_start_time
                             OR (TIME(ts.begin_time) > openhrs.morning_start_time AND TIME(ts.stop_time) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_time) = openhrs.afternoon_start_time
-                            OR (TIME(ts.begin_time) > openhrs.afternoon_start_time AND TIME(ts.stop_time) <= ADDTIME(openhrs.afternoon_end_time,"0:29")) 
+                            OR (TIME(ts.begin_time) > openhrs.afternoon_start_time AND TIME(ts.stop_time) <= ADDTIME(openhrs.afternoon_end_time,"0:29"))
                         )AS taadpa
-                    WHERE ISNULL(taadpa.appointment_uid) 
+                    WHERE ISNULL(taadpa.appointment_uid)
                         AND ISNULL(taadpa.prac_avail_uid)
                         AND !ISNULL(days_uid)
                     """
@@ -1388,7 +1388,7 @@ class GoogleCalenderEvents(Resource):
                 expires_in = r.json()["expires_in"]
                 print("in if", expires_in)
                 execute(
-                    """UPDATE customers SET 
+                    """UPDATE customers SET
                                 user_access_token = \'"""
                     + str(auth_token)
                     + """\'
@@ -1465,7 +1465,7 @@ class GoogleCalenderEvents(Resource):
                     expires_in = r.json()["expires_in"]
                     print("in else", expires_in)
                     execute(
-                        """UPDATE customers SET 
+                        """UPDATE customers SET
                                     user_access_token = \'"""
                         + str(auth_token)
                         + """\'
@@ -1525,9 +1525,21 @@ class SendEmail(Resource):
         print("In Send EMail get")
         try:
             conn = connect()
-            print(subject)
             subject = subject.split(',')
-            print(subject)
+
+            month_num = subject[2][5:7]
+            datetime_object1 = datetime.strptime(month_num, "%m")
+            month_name = datetime_object1.strftime("%B")
+
+            datetime_object2 = datetime.strptime(subject[2], "%Y-%m-%d")
+            day = datetime_object2.strftime("%A")
+
+            datetime_object3 = datetime.strptime(subject[3], "%H:%M")
+            time = datetime_object3.strftime("%I:%M %p")
+            print(time)
+
+            phone = phone[0:3] + "-" + phone[3:6] + "-" + phone[6:]
+            print(phone)
             # Send email to Client
             msg = Message(
                 "Thanks for your Email!",
@@ -1539,17 +1551,29 @@ class SendEmail(Resource):
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
             msg.body = (
                 "Hello " + str(name) + "," + "\n"
-                "We are looking forward to meeting with you! Below is your appointment information: \n"
-                "Treatment: " + str(subject[0]) + "\n"
-                "Amount Paid: " + str(subject[1]) + "\n"
-                "Treatment Date and Time: " +
-                str(subject[2]) + " at " + str(subject[3]) + "\n"
                 "\n"
-                "Email Leena@nityaayurveda.com if you need to get in touch with us directly.\n"
+                "Thank you for making your appointment with us. \n"
+                "Here are your  appointment details: \n"
+                "Date: " +
+                str(day) + ", " + str(month_name) + " " +
+                str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
+                "Time: " + str(time) + "\n"
+                "Location: 6055 Meridian Ave. Suite 40 A, San Jose, CA 95120. \n"
+                "\n"
+                "Name: " + str(name) + "\n"
+                "Phone: " + str(phone) + "\n"
+                "Email: " + str(email) + "\n"
+                "\n"
+                "Package purchased: " + str(subject[0]) + "\n"
+                "Total amount paid: " + str(subject[1]) + "\n"
+                "\n"
+                "If you have any questions please call or text: \n"
+                "Leena Marathay at 408-471-7004, \n"
+                "Email Leena@nityaayurveda.com \n"
                 "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            print('msg-bd----', msg.body)
+            print(msg.body)
             mail.send(msg)
 
             # print("first email sent")
@@ -1648,7 +1672,7 @@ class findCustomerUID(Resource):
                     SELECT customer_uid,
                         customer_phone_num,
                         customer_email
-                    FROM nitya.customers 
+                    FROM nitya.customers
                     WHERE customer_phone_num = \'"""
                 + phone
                 + """\'
@@ -1758,7 +1782,7 @@ class createAccount(Resource):
 
                 query = (
                     """
-                        SELECT user_access_token, user_refresh_token, mobile_access_token, mobile_refresh_token 
+                        SELECT user_access_token, user_refresh_token, mobile_access_token, mobile_refresh_token
                         FROM nitya.customers
                         WHERE customer_uid = \'"""
                     + cust_id
@@ -1782,8 +1806,8 @@ class createAccount(Resource):
 
                 customer_insert_query = [
                     """
-                        UPDATE nitya.customers 
-                        SET 
+                        UPDATE nitya.customers
+                        SET
                         customer_created_at = \'"""
                     + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
                     + """\',
@@ -1873,7 +1897,7 @@ class createAccount(Resource):
                 # write everything to database
                 customer_insert_query = [
                     """
-                        INSERT INTO nitya.customers 
+                        INSERT INTO nitya.customers
                         (
                             customer_uid,
                             customer_created_at,
@@ -1903,7 +1927,7 @@ class createAccount(Resource):
                         )
                         VALUES
                         (
-                        
+
                             \'"""
                     + NewUserID
                     + """\',
@@ -2084,9 +2108,9 @@ class AccountSalt(Resource):
             email = data["email"]
             query = (
                 """
-                    SELECT password_algorithm, 
+                    SELECT password_algorithm,
                             password_salt,
-                            user_social_media 
+                            user_social_media
                     FROM nitya.customers cus
                     WHERE customer_email = \'"""
                 + email
@@ -2401,7 +2425,7 @@ class findSeminarUID(Resource):
             query = (
                 """
                     # QUERY 5
-                    
+
                     SELECT seminar_uid,
                         email
                     FROM nitya.seminar
@@ -2433,11 +2457,11 @@ class WorkshopAttendees(Resource):
             # Connect to the DataBase
             conn = connect()
             # QUERY 1
-            query = """  
-                SELECT 
-                    CONCAT(first_name, ' ', last_name) as name, 
-                    email, 
-                    CONCAT(city, ',',state) as city, 
+            query = """
+                SELECT
+                    CONCAT(first_name, ' ', last_name) as name,
+                    email,
+                    CONCAT(city, ',',state) as city,
                     mode,
                     num_attenedees
                 FROM nitya.seminar;
