@@ -2140,6 +2140,168 @@ class AccountSalt(Resource):
             disconnect(conn)
 
 
+class UserSocialSignUp(Resource):
+    def post(self):
+        print("In UserSocialSignUp")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+
+            ts = getNow()
+
+            customer_email = data['customer_email']
+            customer_first_name = data['customer_first_name']
+            customer_last_name = data['customer_last_name']
+            customer_phone_num = data['customer_phone_num']
+            role = data["role"]
+            user_social_media = data["user_social_media"]
+            user_access_token = data["user_access_token"]
+            print(user_access_token)
+            social_id = data["social_id"]
+            print(social_id)
+            user_refresh_token = data["user_refresh_token"]
+            print(user_refresh_token)
+            access_expires_in = data["access_expires_in"]
+            print(access_expires_in)
+
+            cust_id_response = execute("""SELECT customer_uid, password_hashed FROM customers
+                                            WHERE customer_email = \'""" + customer_email + """\';""", 'get', conn)
+
+            if len(cust_id_response['result']) > 0:
+                print('Customer exists')
+                response['message'] = "Email ID already exists."
+
+            else:
+                print('in else')
+                new_customer_id_response = execute(
+                    "CALL new_customer_uid;", 'get', conn)
+                new_customer_id = new_customer_id_response['result'][0]['new_id']
+
+                execute("""INSERT INTO customers
+                        SET customer_uid = \'""" + new_customer_id + """\',
+                            customer_created_at = \'""" + ts + """\',
+                            customer_email = \'""" + customer_email + """\',
+                            customer_first_name = \'""" + customer_first_name + """\',
+                            customer_last_name = \'""" + customer_last_name + """\',
+                            user_access_token = \'""" + user_access_token + """\',
+                            social_id = \'""" + social_id + """\',
+                            role = \'""" + role + """\',
+                            user_social_media = \'""" + user_social_media + """\',
+                            user_refresh_token = \'""" + user_refresh_token + """\',
+                            access_expires_in = \'""" + access_expires_in + """\',
+                            customer_phone_num = \'""" + customer_phone_num + """\';""", 'post', conn)
+                response['message'] = 'successful'
+                response['result'] = new_customer_id
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
+class UserSocialLogin(Resource):
+    def get(self, email_id):
+        print("In UserSocialLogin")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            # data = request.get_json(force=True)
+            # email_id = data['email_id']
+            # password = data['password']
+            temp = False
+            emails = execute(
+                """SELECT customer_uid, customer_email, user_access_token from customers;""", 'get', conn)
+            for i in range(len(emails['result'])):
+                email = emails['result'][i]['customer_email']
+                if email == email_id:
+                    temp = True
+                    customer_uid = emails['result'][i]['customer_uid']
+                    user_access_token = emails["result"][i]["user_access_token"]
+            if temp == True:
+
+                response['result'] = customer_uid, user_access_token
+                response['message'] = 'Correct Email'
+
+            if temp == False:
+                response['result'] = False
+                response['message'] = 'Email ID doesnt exist'
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
+class UserTokenEmail(Resource):
+    def get(self, customer_email):
+        print("In UserTokenEmail")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            query = None
+
+            query = (
+                """SELECT customer_uid
+                                , customer_email
+                                , user_access_token
+                                ,user_refresh_token
+                        FROM
+                        customers WHERE customer_email = \'"""
+                + customer_email
+                + """\';"""
+            )
+
+            items = execute(query, "get", conn)
+            print(items)
+            response["message"] = "successful"
+            response["customer_uid"] = items["result"][0]["customer_uid"]
+            response["customer_email"] = items["result"][0]["customer_email"]
+            response["user_access_token"] = items["result"][0]["user_access_token"]
+            response["user_refresh_token"] = items["result"][0][
+                "user_refresh_token"
+            ]
+
+            return response, 200
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class GetUserEmailId(Resource):
+    def get(self, customer_email):
+        print("In GetUserEmailID")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+
+            temp = False
+            emails = execute(
+                """SELECT customer_email from customers where customer_email = \'""" + customer_email + """\';""", 'get', conn)
+            print(emails)
+            if len(emails['result']) > 0:
+                response['message'] = emails['result'][0]['customer_email']
+            else:
+                response['message'] = 'User ID doesnt exist'
+
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
+        finally:
+            disconnect(conn)
+
+
 class Login(Resource):
     def post(self):
         response = {}
@@ -2555,6 +2717,10 @@ api.add_resource(AddBlog, "/api/v2/addBlog")
 api.add_resource(UploadImage, "/api/v2/uploadImage")
 api.add_resource(DeleteBlog, "/api/v2/deleteBlog/<string:blog_id>")
 
+api.add_resource(
+    GetUserEmailId, '/api/v2/GetUserEmailId/<string:customer_email>')
+api.add_resource(
+    UserTokenEmail, '/api/v2/UserTokenEmail/<string:customer_email>')
 
 api.add_resource(
     OneCustomerAppointments, "/api/v2/oneCustomerAppointments/<string:customer_uid>"
@@ -2583,7 +2749,9 @@ api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
 api.add_resource(Login, "/api/v2/Login")
 api.add_resource(stripe_key, "/api/v2/stripe_key/<string:desc>")
+api.add_resource(UserSocialLogin, '/api/v2/UserSocialLogin/<string:email_id>')
 
+api.add_resource(UserSocialSignUp, '/api/v2/UserSocialSignUp')
 api.add_resource(SeminarRegister, "/api/v2/SeminarRegister")
 api.add_resource(UpdateRegister, "/api/v2/UpdateRegister/<string:seminar_id>")
 api.add_resource(findSeminarUID, "/api/v2/findSeminarUID")
