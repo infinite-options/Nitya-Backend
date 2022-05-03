@@ -544,6 +544,39 @@ class UploadImage(Resource):
             print("image uploaded!")
 
 
+class UploadVideo(Resource):
+    def post(self):
+        try:
+            item_video = request.files.get("item_video")
+            bucket = "nitya-images"
+            uid = request.form.get("filename")
+            TimeStamp_test = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            print(TimeStamp_test)
+            key = "blogsVideos/" + str(uid) + "_" + TimeStamp_test
+            print(key)
+
+            filename = (
+                "https://s3-us-west-1.amazonaws.com/" +
+                str(bucket) + "/" + str(key)
+            )
+
+            # s3.upload_file(Bucket=bucket,
+            #                Body=item_video,
+            #                Key=key)
+            upload_file = s3.put_object(
+                Bucket=bucket,
+                Body=item_video,
+                Key=key,
+                ACL="public-read",
+                ContentType="video/mp4",
+            )
+            print("Upload Successful")
+            return filename
+        except FileNotFoundError:
+            print("The file was not found")
+            return False
+
+
 class FullBlog(Resource):
     def get(self, blog_id):
         response = {}
@@ -2715,6 +2748,8 @@ api.add_resource(FullBlog, "/api/v2/fullBlog/<string:blog_id>")
 api.add_resource(TruncatedBlog, "/api/v2/truncatedBlog")
 api.add_resource(AddBlog, "/api/v2/addBlog")
 api.add_resource(UploadImage, "/api/v2/uploadImage")
+
+api.add_resource(UploadVideo, "/api/v2/uploadVideo")
 api.add_resource(DeleteBlog, "/api/v2/deleteBlog/<string:blog_id>")
 
 api.add_resource(
