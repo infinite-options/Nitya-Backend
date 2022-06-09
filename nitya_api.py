@@ -777,7 +777,7 @@ class CreateAppointment(Resource):
                 + treatment_uid
                 + """\',
                         notes = \'"""
-                + str(notes)
+                + str(notes).replace("'", "''")
                 + """\',
                         appt_date = \'"""
                 + datevalue
