@@ -114,9 +114,9 @@ CORS(app)
 
 # --------------- Mail Variables ------------------
 # Mail username and password loaded in zappa_settings.json file
-app.config["MAIL_USERNAME"] = os.environ.get("SUPPORT_EMAIL")
-app.config["MAIL_PASSWORD"] = os.environ.get("SUPPORT_PASSWORD")
-app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("SUPPORT_EMAIL")
+app.config["MAIL_USERNAME"] = "support@nityaayurveda.com"
+app.config["MAIL_PASSWORD"] = "SupportNitya1"
+app.config["MAIL_DEFAULT_SENDER"] = "support@nityaayurveda.com"
 
 # Use locally defined Username and Password to test via localhost and Postman
 # app.config['MAIL_USERNAME'] = 'support@nityaayurveda.com'
@@ -809,6 +809,8 @@ class CreateAppointment(Resource):
             message = treatment['result'][0]['title'] + "," + \
                 purchase_price + "," + datevalue + "," + timevalue
             print(name)
+            print('os.environ.get("SUPPORT_EMAIL")',
+                  os.environ.get("SUPPORT_EMAIL"))
             SendEmail.get(self, name, email, phone_no, message)
 
             response["message"] = "Appointments Post successful"
