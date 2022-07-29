@@ -1551,7 +1551,64 @@ class GoogleCalenderEvents(Resource):
             disconnect(conn)
 
 
+class SendEmailCRON_CLASS(Resource):
+
+    def get(self):
+        print("In Send EMail get")
+        try:
+            conn = connect()
+
+            # Send email to Client
+            msg = Message(
+                subject="Daily Email Check!",
+                sender="support@nityaayurveda.com",
+                recipients=["Lmarathay@yahoo.com",
+                            "pmarathay@gmail.com"],
+            )
+            msg.body = (
+                "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+            )
+            print(msg.body)
+            mail.send(msg)
+
+            return "Email Sent", 200
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+def SendEmailCRON():
+    print("In Send EMail get")
+
+    try:
+        conn = connect()
+
+        # Send email to Client
+        msg = Message(
+            subject="Daily Email Check!",
+            sender="support@nityaayurveda.com",
+            recipients=["Lmarathay@yahoo.com",
+                        "pmarathay@gmail.com"],
+        )
+        msg.body = (
+            "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+        )
+        print(msg.body)
+        mail.send(msg)
+
+        return "Email Sent", 200
+
+    except:
+        raise BadRequest(
+            "SendEmailCROM Request failed, please try again later.")
+    finally:
+        disconnect(conn)
+
 # SEND EMAIL
+
+
 class SendEmail(Resource):
     def __call__(self):
         print("In SendEmail")
@@ -2780,7 +2837,7 @@ api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
 api.add_resource(SendEmail, "/api/v2/sendEmail")
-
+api.add_resource(SendEmailCRON_CLASS, "/api/v2/sendEmailCRON_CLASS")
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
