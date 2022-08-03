@@ -9,7 +9,7 @@
         "slim_handler": true,
 	"events": [
             {"function": "nitya_api.SendEmailCRON", 
-            "expression": "cron(45 7 * * ? *)"}
+            "expression": "cron(45 14 * * ? *)"}
         ]
     }
 }      
