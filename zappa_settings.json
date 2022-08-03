@@ -1,0 +1,15 @@
+{
+    "dev": {
+        "app_function": "nitya_api.app",
+        "aws_region": "us-west-1",
+        "profile_name": "default",
+        "project_name": "nitya-ayurveda",
+        "runtime": "python3.7",
+        "s3_bucket": "zappa-nitya",
+        "slim_handler": true,
+	"events": [
+            {"function": "nitya_api.SendEmailCRON", 
+            "expression": "cron(45 7 * * ? *)"}
+        ]
+    }
+}      

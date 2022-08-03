@@ -12,6 +12,7 @@
 # pip3 install pymysql
 # pip3 install python-dateutil
 
+from dotenv import load_dotenv
 from email import message
 import os
 import uuid
@@ -19,7 +20,7 @@ import boto3
 import json
 import math
 import httplib2
-
+from os import environ
 from datetime import time, date, datetime, timedelta
 import calendar
 
@@ -66,6 +67,7 @@ import random
 
 #  NEED TO SOLVE THIS
 # from env_keys import BING_API_KEY, RDS_PW
+from dotenv import load_dotenv
 
 import decimal
 import sys
@@ -86,23 +88,24 @@ APPLICATION_NAME = "nitya-ayurveda"
 # app = Flask(__name__)
 app = Flask(__name__, template_folder="assets")
 
+load_dotenv()
 
 # --------------- Stripe Variables ------------------
 # these key are using for testing. Customer should use their stripe account's keys instead
 
 
 # STRIPE AND PAYPAL KEYS
-paypal_secret_test_key = os.environ.get("paypal_secret_key_test")
-paypal_secret_live_key = os.environ.get("paypal_secret_key_live")
+paypal_secret_test_key = os.getenv("paypal_secret_key_test")
+paypal_secret_live_key = os.getenv("paypal_secret_key_live")
 
-paypal_client_test_key = os.environ.get("paypal_client_test_key")
-paypal_client_live_key = os.environ.get("paypal_client_live_key")
+paypal_client_test_key = os.getenv("paypal_client_test_key")
+paypal_client_live_key = os.getenv("paypal_client_live_key")
 
-stripe_public_test_key = os.environ.get("stripe_public_test_key")
-stripe_secret_test_key = os.environ.get("stripe_secret_test_key")
+stripe_public_test_key = os.getenv("stripe_public_test_key")
+stripe_secret_test_key = os.getenv("stripe_secret_test_key")
 
-stripe_public_live_key = os.environ.get("stripe_public_live_key")
-stripe_secret_live_key = os.environ.get("stripe_secret_live_key")
+stripe_public_live_key = os.getenv("stripe_public_live_key")
+stripe_secret_live_key = os.getenv("stripe_secret_live_key")
 
 stripe.api_key = stripe_secret_test_key
 
@@ -113,15 +116,11 @@ stripe.api_key = stripe_secret_test_key
 CORS(app)
 
 # --------------- Mail Variables ------------------
-# Mail username and password loaded in zappa_settings.json file
-app.config["MAIL_USERNAME"] = "support@nityaayurveda.com"
-app.config["MAIL_PASSWORD"] = "SupportNitya1"
-app.config["MAIL_DEFAULT_SENDER"] = "support@nityaayurveda.com"
+# Mail username and password loaded in .env file
+app.config['MAIL_USERNAME'] = os.getenv('SUPPORT_EMAIL')
+app.config['MAIL_PASSWORD'] = os.getenv('SUPPORT_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
 
-# Use locally defined Username and Password to test via localhost and Postman
-# app.config['MAIL_USERNAME'] = 'support@nityaayurveda.com'
-# app.config['MAIL_PASSWORD'] = '<enter password here>'
-# app.config['MAIL_DEFAULT_SENDER'] = 'support@nityaayurveda.com'
 
 # Setting for mydomain.com
 app.config["MAIL_SERVER"] = "smtp.mydomain.com"
@@ -140,7 +139,7 @@ app.config["MAIL_USE_SSL"] = True
 app.config["DEBUG"] = True
 # app.config["DEBUG"] = False
 
-app.config["STRIPE_SECRET_KEY"] = os.environ.get("STRIPE_SECRET_KEY")
+app.config["STRIPE_SECRET_KEY"] = os.getenv("STRIPE_SECRET_KEY")
 
 mail = Mail(app)
 
@@ -197,11 +196,11 @@ ALLOWED_EXTENSIONS = set(["png", "jpg", "jpeg"])
 
 # For Push notification
 isDebug = False
-NOTIFICATION_HUB_KEY = os.environ.get("NOTIFICATION_HUB_KEY")
-NOTIFICATION_HUB_NAME = os.environ.get("NOTIFICATION_HUB_NAME")
+NOTIFICATION_HUB_KEY = os.getenv("NOTIFICATION_HUB_KEY")
+NOTIFICATION_HUB_NAME = os.getenv("NOTIFICATION_HUB_NAME")
 
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
 # Connect to MySQL database (API v2)
 
@@ -1551,6 +1550,23 @@ class GoogleCalenderEvents(Resource):
             disconnect(conn)
 
 
+def sendEmail2(recipient, subject, body):
+    print('in sendemail2')
+    with app.app_context():
+        msg = Message(
+            sender="support@nityaayurveda.com",
+            recipients=recipient,
+            subject=subject,
+            body=body
+        )
+        print(msg)
+        mail.send(msg)
+        print('after mail send')
+
+
+app.sendEmail2 = sendEmail2
+
+
 class SendEmailCRON_CLASS(Resource):
 
     def get(self):
@@ -1558,18 +1574,23 @@ class SendEmailCRON_CLASS(Resource):
         try:
             conn = connect()
 
-            # Send email to Client
-            msg = Message(
-                subject="Daily Email Check!",
-                sender="support@nityaayurveda.com",
-                recipients=["Lmarathay@yahoo.com",
-                            "pmarathay@gmail.com"],
-            )
-            msg.body = (
-                "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
-            )
-            print(msg.body)
-            mail.send(msg)
+            # # Send email to Client
+            # msg = Message(
+            #     subject="Daily Email Check!",
+            #     sender="support@nityaayurveda.com",
+            #     recipients=["anu.sandhu7893@gmail.com"],
+            # )
+            # msg.body = (
+            #     "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+            # )
+            # print(msg.body)
+            # mail.send(msg)
+            recipient = ["anu.sandhu7893@gmail.com"]
+            subject = "Daily Email Check!"
+            body = (
+                "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong")
+            # mail.send(msg)
+            sendEmail2(recipient, subject, body)
 
             return "Email Sent", 200
 
@@ -1581,28 +1602,41 @@ class SendEmailCRON_CLASS(Resource):
 
 def SendEmailCRON():
     print("In Send EMail get")
-
+    from flask_mail import Mail, Message
     try:
         conn = connect()
-
+        print('here after connect')
         # Send email to Client
-        msg = Message(
-            subject="Daily Email Check!",
-            sender="support@nityaayurveda.com",
-            recipients=["Lmarathay@yahoo.com",
-                        "pmarathay@gmail.com"],
-        )
-        msg.body = (
+        # msg = Message(
+        #     subject="Daily Email Check!",
+        #     sender="support@nityaayurveda.com",
+        #     recipients=["Lmarathay@yahoo.com",
+        #                 "pmarathay@gmail.com", "anu.sandhu7893@gmail.com"],
+        # )
+        # print(msg)
+        # msg.body = (
+        #     "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+        # )
+        # print(msg.body)
+        # mail.send(msg)
+        recipient = ["Lmarathay@yahoo.com",
+                     "pmarathay@gmail.com", "anu.sandhu7893@gmail.com"]
+        print(recipient)
+        subject = "Daily Email Check!"
+        print(subject)
+        body = (
             "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
         )
-        print(msg.body)
-        mail.send(msg)
+        print(body)
+        # mail.send(msg)
+        sendEmail2(recipient, subject, body)
+
+        print('here after mail send')
 
         return "Email Sent", 200
 
     except:
-        raise BadRequest(
-            "SendEmailCROM Request failed, please try again later.")
+        raise BadRequest("Email didnt send something is wrong.")
     finally:
         disconnect(conn)
 
