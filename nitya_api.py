@@ -682,6 +682,9 @@ class CreateAppointment(Resource):
             timevalue = data["appt_time"]
             purchase_price = data["purchase_price"]
             purchase_date = data["purchase_date"]
+            mode = data["mode"]
+            gender = data["gender"]
+            age = data["age"]
 
             #  PRINT CUSTOMER APPOINTMENT INFO
             print("first_name", first_name)
@@ -789,6 +792,15 @@ class CreateAppointment(Resource):
                 + """\',
                         purchase_date = \'"""
                 + purchase_date
+                + """\',
+                        mode = \'"""
+                + mode
+                + """\',
+                        gender = \'"""
+                + gender
+                + """\',
+                        age = \'"""
+                + age
                 + """\'
                     """
             )
@@ -805,12 +817,14 @@ class CreateAppointment(Resource):
             print(treatment['result'][0]['title'])
             # Send receipt emails
             name = first_name + " " + last_name
+            age = age
+            gender = gender
             message = treatment['result'][0]['title'] + "," + \
                 purchase_price + "," + datevalue + "," + timevalue
             print(name)
             print('os.environ.get("SUPPORT_EMAIL")',
                   os.environ.get("SUPPORT_EMAIL"))
-            SendEmail.get(self, name, email, phone_no, message)
+            SendEmail.get(self, name, age, gender, email, phone_no, message)
 
             response["message"] = "Appointments Post successful"
             response["result"] = items
@@ -963,7 +977,7 @@ class AddContact(Resource):
 
             # Send receipt emails
             phone = message
-            SendEmail.get(self, name, email, phone, subject)
+            SendEmail.get(self, name, "", "", email, phone, subject)
 
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
@@ -1647,7 +1661,7 @@ class SendEmail(Resource):
     def __call__(self):
         print("In SendEmail")
 
-    def get(self, name, email, phone, subject):
+    def get(self, name, age, gender, email, phone, subject):
         print("In Send EMail get")
         try:
             conn = connect()
@@ -1666,6 +1680,9 @@ class SendEmail(Resource):
 
             phone = phone[0:3] + "-" + phone[3:6] + "-" + phone[6:]
             print(phone)
+
+            age = age
+            gender = gender
             # Send email to Client
             msg = Message(
                 "Thanks for your Email!",
@@ -1689,6 +1706,8 @@ class SendEmail(Resource):
                 "Name: " + str(name) + "\n"
                 "Phone: " + str(phone) + "\n"
                 "Email: " + str(email) + "\n"
+                "Age: " + str(age) + "\n"
+                "Gender: " + str(gender) + "\n"
                 "\n"
                 "Package purchased: " + str(subject[0]) + "\n"
                 "Total amount paid: " + str(subject[1]) + "\n"
