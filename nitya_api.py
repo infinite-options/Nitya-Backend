@@ -824,7 +824,8 @@ class CreateAppointment(Resource):
             print(name)
             print('os.environ.get("SUPPORT_EMAIL")',
                   os.environ.get("SUPPORT_EMAIL"))
-            SendEmail.get(self, name, age, gender, email, phone_no, message)
+            SendEmail.get(self, name, age, gender, mode,
+                          email, phone_no, message)
 
             response["message"] = "Appointments Post successful"
             response["result"] = items
@@ -977,7 +978,7 @@ class AddContact(Resource):
 
             # Send receipt emails
             phone = message
-            SendEmail.get(self, name, "", "", email, phone, subject)
+            SendEmail.get(self, name, "", "", "", email, phone, subject)
 
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
@@ -1020,14 +1021,14 @@ class purchaseDetails(Resource):
 
 
 class AvailableAppointments(Resource):
-    def get(self, date_value, duration):
+    def get(self, date_value, duration, mode):
         print("\nInside Available Appointments")
         response = {}
         items = {}
 
         try:
             conn = connect()
-            print("Inside try block", date_value, duration)
+            print("Inside try block", date_value, duration, mode)
 
             # CALCULATE AVAILABLE TIME SLOTS
             query = (
@@ -1086,7 +1087,9 @@ class AvailableAppointments(Resource):
                             FROM nitya.days
                             WHERE dayofweek = DAYOFWEEK('"""
                 + date_value
-                + """')) AS openhrs
+                + """') AND hoursMode = '"""
+                + mode
+                + """') AS openhrs
                         ON TIME(ts.begin_datetime) = openhrs.morning_start_time
                             OR (TIME(ts.begin_datetime) > openhrs.morning_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_datetime) = openhrs.afternoon_start_time
@@ -1661,7 +1664,7 @@ class SendEmail(Resource):
     def __call__(self):
         print("In SendEmail")
 
-    def get(self, name, age, gender, email, phone, subject):
+    def get(self, name, age, gender, mode, email, phone, subject):
         print("In Send EMail get")
         try:
             conn = connect()
@@ -1683,16 +1686,52 @@ class SendEmail(Resource):
 
             age = age
             gender = gender
+            mode = mode
             # Send email to Client
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
                 # recipients=[email],
-                recipients=[email, "Lmarathay@yahoo.com",
-                            "pmarathay@gmail.com"],
+                recipients=[email],
             )
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
             msg.body = (
+                "Hello " + str(name) + "," + "\n"
+                "\n"
+                "Thank you for making your appointment with us. \n"
+                "Here are your  appointment details: \n"
+                "Date: " +
+                str(day) + ", " + str(month_name) + " " +
+                str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
+                "Time: " + str(time) + "\n"
+                "Location: 6055 Meridian Ave. Suite 40 A, San Jose, CA 95120. \n"
+                "\n"
+                "Name: " + str(name) + "\n"
+                "Phone: " + str(phone) + "\n"
+                "Email: " + str(email) + "\n"
+                "\n"
+                "Package purchased: " + str(subject[0]) + "\n"
+                "Total amount paid: " + str(subject[1]) + "\n"
+                "\n"
+                "If you have any questions please call or text: \n"
+                "Leena Marathay at 408-471-7004, \n"
+                "Email Leena@nityaayurveda.com \n"
+                "\n"
+                "Thank you - Nitya Ayurveda\n\n"
+            )
+            print(msg.body)
+            mail.send(msg)
+
+            # Send email to Client
+            msg2 = Message(
+                "Thanks for your Email!",
+                sender="support@nityaayurveda.com",
+                # recipients=[email],
+                recipients=["Lmarathay@yahoo.com",
+                            "pmarathay@gmail.com"],
+            )
+            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+            msg2.body = (
                 "Hello " + str(name) + "," + "\n"
                 "\n"
                 "Thank you for making your appointment with us. \n"
@@ -1711,6 +1750,7 @@ class SendEmail(Resource):
                 "\n"
                 "Package purchased: " + str(subject[0]) + "\n"
                 "Total amount paid: " + str(subject[1]) + "\n"
+                "Mode: " + str(mode) + "\n"
                 "\n"
                 "If you have any questions please call or text: \n"
                 "Leena Marathay at 408-471-7004, \n"
@@ -1718,8 +1758,8 @@ class SendEmail(Resource):
                 "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            print(msg.body)
-            mail.send(msg)
+            print(msg2.body)
+            mail.send(msg2)
 
             # print("first email sent")
             # Send email to Host
@@ -2884,7 +2924,7 @@ api.add_resource(UpdateAccessToken,
 api.add_resource(CustomerToken, "/api/v2/customerToken/<string:customer_uid>")
 api.add_resource(
     AvailableAppointments,
-    "/api/v2/availableAppointments/<string:date_value>/<string:duration>",
+    "/api/v2/availableAppointments/<string:date_value>/<string:duration>/<string:mode>",
 )
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
