@@ -824,7 +824,7 @@ class CreateAppointment(Resource):
             print(name)
             print('os.environ.get("SUPPORT_EMAIL")',
                   os.environ.get("SUPPORT_EMAIL"))
-            SendEmail.get(self, name, age, gender, mode,
+            SendEmail.get(self, name, age, gender, mode, str(notes),
                           email, phone_no, message)
 
             response["message"] = "Appointments Post successful"
@@ -978,7 +978,7 @@ class AddContact(Resource):
 
             # Send receipt emails
             phone = message
-            SendEmail.get(self, name, "", "", "", email, phone, subject)
+            SendEmail.get(self, name, "", "", "", "", email, phone, subject)
 
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
@@ -1664,7 +1664,7 @@ class SendEmail(Resource):
     def __call__(self):
         print("In SendEmail")
 
-    def get(self, name, age, gender, mode, email, phone, subject):
+    def get(self, name, age, gender, mode, notes, email, phone, subject):
         print("In Send EMail get")
         try:
             conn = connect()
@@ -1687,25 +1687,33 @@ class SendEmail(Resource):
             age = age
             gender = gender
             mode = mode
+            notes = notes
+            if mode == 'Online':
+                location = 'Online - We will send you a Zoom link via email, 5 minutes before the appointment begins'
+            else:
+                location = '6055 Meridian Ave. Suite 40 A, San Jose, CA 95120.'
             # Send email to Client
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
                 # recipients=[email],
-                recipients=[email],
+                recipients=[email,
+                            "pmarathay@gmail.com"],
             )
+            # client email
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
             msg.body = (
                 "Hello " + str(name) + "," + "\n"
                 "\n"
                 "Thank you for making your appointment with us. \n"
-                "Here are your  appointment details: \n"
+                "Here are your appointment details: \n"
                 "Date: " +
                 str(day) + ", " + str(month_name) + " " +
                 str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
                 "Time: " + str(time) + "\n"
-                "Location: 6055 Meridian Ave. Suite 40 A, San Jose, CA 95120. \n"
+                "Location: " + str(location) + "\n"
                 "\n"
+                "If we need to contact you, we will use the following phone number and email: \n"
                 "Name: " + str(name) + "\n"
                 "Phone: " + str(phone) + "\n"
                 "Email: " + str(email) + "\n"
@@ -1722,25 +1730,26 @@ class SendEmail(Resource):
             print(msg.body)
             mail.send(msg)
 
-            # Send email to Client
+            # Send email to Practitioner
             msg2 = Message(
-                "Thanks for your Email!",
+                "New appointment booked!",
                 sender="support@nityaayurveda.com",
                 # recipients=[email],
                 recipients=["Lmarathay@yahoo.com",
                             "pmarathay@gmail.com"],
             )
+            # practitioner email
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
             msg2.body = (
-                "Hello " + str(name) + "," + "\n"
+                "Hello Leena" + "\n"
                 "\n"
-                "Thank you for making your appointment with us. \n"
-                "Here are your  appointment details: \n"
+                "Congratulations someone booked another appointment. \n"
+                "Here are the appointment details: \n"
                 "Date: " +
                 str(day) + ", " + str(month_name) + " " +
                 str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
                 "Time: " + str(time) + "\n"
-                "Location: 6055 Meridian Ave. Suite 40 A, San Jose, CA 95120. \n"
+                "Location: " + str(location) + "\n"
                 "\n"
                 "Name: " + str(name) + "\n"
                 "Phone: " + str(phone) + "\n"
@@ -1752,11 +1761,7 @@ class SendEmail(Resource):
                 "Total amount paid: " + str(subject[1]) + "\n"
                 "Mode: " + str(mode) + "\n"
                 "\n"
-                "If you have any questions please call or text: \n"
-                "Leena Marathay at 408-471-7004, \n"
-                "Email Leena@nityaayurveda.com \n"
-                "\n"
-                "Thank you - Nitya Ayurveda\n\n"
+                "Notes: " + str(notes) + "\n"
             )
             print(msg2.body)
             mail.send(msg2)
