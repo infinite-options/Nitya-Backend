@@ -424,6 +424,127 @@ class treatments(Resource):
 
         # http://localhost:4000/api/v2/treatments
 
+# QUERY 2:  GETS ALL TREATMENTS
+
+
+class availability(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 2
+            query = """
+                SELECT * FROM  nitya.days;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class unavailability(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 2
+            query = """
+                SELECT * FROM  nitya.practioner_availability;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class updateUnavailability(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            date = data["date"]
+            start_time_notavailable = data["start_time_notavailable"]
+            end_time_notavailable = data["end_time_notavailable"]
+
+            query_get = """
+                SELECT * FROM  nitya.practioner_availability
+                ORDER by prac_avail_uid;
+                """
+            # The query is executed here
+            items_get = execute(query_get, "get", conn)
+
+            result = int(items_get['result'][-1]['number'])+1
+            print(result)
+            # QUERY 2
+            query = ["CALL nitya.new_practioner_availability_uid;"]
+            print(query)
+            NewIDresponse = execute(query[0], "get", conn)
+            print(NewIDresponse)
+            NewID = NewIDresponse["result"][0]["new_id"]
+            print("NewID = ", NewID)
+
+            query = (
+                """
+                    INSERT INTO nitya.practioner_availability
+                    SET prac_avail_uid  = \'"""
+                + NewID
+                + """\',
+                        number = \'"""
+                + str(result)
+                + """\',
+                        date = \'"""
+                + date
+                + """\',
+                        start_time_notavailable = \'"""
+                + start_time_notavailable
+                + """\',
+                        end_time_notavailable = \'"""
+                + end_time_notavailable
+                + """\';
+                    """
+            )
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
 
 class AddBlog(Resource):
     def post(self):
@@ -2901,6 +3022,11 @@ class RegistrationConfirmation(Resource):
 
 api.add_resource(appointments, "/api/v2/appointments")
 api.add_resource(treatments, "/api/v2/treatments")
+
+api.add_resource(availability, "/api/v2/availability")
+api.add_resource(unavailability, "/api/v2/unavailability")
+api.add_resource(updateUnavailability, "/api/v2/updateUnavailability")
+
 api.add_resource(FullBlog, "/api/v2/fullBlog/<string:blog_id>")
 api.add_resource(TruncatedBlog, "/api/v2/truncatedBlog")
 api.add_resource(AddBlog, "/api/v2/addBlog")
