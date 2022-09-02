@@ -490,8 +490,8 @@ class updateUnavailability(Resource):
             print("Received:", data)
 
             date = data["date"]
-            start_time_notavailable = data["start_time_notavailable"]
-            end_time_notavailable = data["end_time_notavailable"]
+            start_time_notavailable = data["start_time_notavailable"] + ':00'
+            end_time_notavailable = data["end_time_notavailable"] + ':00'
 
             query_get = """
                 SELECT * FROM  nitya.practioner_availability
