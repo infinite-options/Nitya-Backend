@@ -452,6 +452,48 @@ class availability(Resource):
             disconnect(conn)
 
 
+class updateAvailability(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            days = data['days']
+            print('days', days)
+
+            for day in days:
+                print('day', day[0]['id'])
+                query = (
+                    """UPDATE nitya.days
+                            SET
+                                morning_start_time = \'""" + day[0]['morning_start_time'] + """\',
+                                morning_end_time = \'""" + day[0]['morning_end_time'] + """\',
+                                afternoon_start_time = \'""" + day[0]['afternoon_start_time'] + """\',
+                                afternoon_end_time = \'""" + day[0]['afternoon_end_time'] + """\'
+                            WHERE days_uid = \'""" + day[0]['id'] + """\'; """
+                )
+
+                items = execute(query, "post", conn)
+                print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class unavailability(Resource):
     def get(self):
         response = {}
@@ -528,6 +570,75 @@ class updateUnavailability(Resource):
                         end_time_notavailable = \'"""
                 + end_time_notavailable
                 + """\';
+                    """
+            )
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+    def put(self):
+        print("\nInside UPDATE Inventory")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            id = data["id"]
+            date = data["date"]
+            start_time_notavailable = data["start_time_notavailable"] + ':00'
+            end_time_notavailable = data["end_time_notavailable"] + ':00'
+
+            query = (""" UPDATE nitya.practioner_availability
+                        SET 
+                            date = \'""" + date + """\',
+                            start_time_notavailable = \'""" + start_time_notavailable + """\',
+                            end_time_notavailable = \'""" + end_time_notavailable + """\'
+                        WHERE prac_avail_uid = \'""" + id + """\';
+                    """)
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class deleteUnavailability(Resource):
+    def post(self, id):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            query = (
+                """
+                    DELETE FROM nitya.practioner_availability
+                   WHERE prac_avail_uid = '"""
+                + id
+                + """';
                     """
             )
 
@@ -3024,8 +3135,12 @@ api.add_resource(appointments, "/api/v2/appointments")
 api.add_resource(treatments, "/api/v2/treatments")
 
 api.add_resource(availability, "/api/v2/availability")
+api.add_resource(updateAvailability, "/api/v2/updateAvailability")
+
 api.add_resource(unavailability, "/api/v2/unavailability")
 api.add_resource(updateUnavailability, "/api/v2/updateUnavailability")
+api.add_resource(deleteUnavailability,
+                 "/api/v2/deleteUnavailability/<string:id>")
 
 api.add_resource(FullBlog, "/api/v2/fullBlog/<string:blog_id>")
 api.add_resource(TruncatedBlog, "/api/v2/truncatedBlog")
