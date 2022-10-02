@@ -12,6 +12,7 @@
 # pip3 install pymysql
 # pip3 install python-dateutil
 
+from urllib import response
 from dotenv import load_dotenv
 from email import message
 import os
@@ -1056,14 +1057,15 @@ class CreateAppointment(Resource):
             print(name)
             print('os.environ.get("SUPPORT_EMAIL")',
                   os.environ.get("SUPPORT_EMAIL"))
-            SendEmail.get(self, name, age, gender, mode, str(notes),
-                          email, phone_no, message)
-
             response["message"] = "Appointments Post successful"
             response["result"] = items
+            print('response', response)
+            SendEmail.get(self, name, age, gender,
+                          mode, str(notes), email, phone_no, message)
+
             return response, 200
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Request failed app, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1210,7 +1212,7 @@ class AddContact(Resource):
 
             # Send receipt emails
             phone = message
-            SendEmail.get(self, name, "", "", "", "", email, phone, subject)
+            SendEmailNewGet.get(self, name, email, phone, subject)
 
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
@@ -1855,19 +1857,7 @@ def SendEmailCRON():
     try:
         conn = connect()
         print('here after connect')
-        # Send email to Client
-        # msg = Message(
-        #     subject="Daily Email Check!",
-        #     sender="support@nityaayurveda.com",
-        #     recipients=["Lmarathay@yahoo.com",
-        #                 "pmarathay@gmail.com", "anu.sandhu7893@gmail.com"],
-        # )
-        # print(msg)
-        # msg.body = (
-        #     "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
-        # )
-        # print(msg.body)
-        # mail.send(msg)
+
         recipient = ["Lmarathay@yahoo.com",
                      "pmarathay@gmail.com", "anu.sandhu7893@gmail.com"]
         print(recipient)
@@ -1892,12 +1882,53 @@ def SendEmailCRON():
 # SEND EMAIL
 
 
+class SendEmailNewGet(Resource):
+    def __call__(self):
+        print("In SendEmailNewGet")
+
+    def get(self, name, email, phone, subject):
+        print("In SendEmailNewGet")
+        response = {}
+        try:
+            conn = connect()
+
+            # print("first email sent")
+            # Send email to Host
+            msg = Message(
+                "New Email from Website!",
+                sender="support@nityaayurveda.com",
+                recipients=["Lmarathay@yahoo.com"],
+            )
+            msg.body = (
+                "Hi !\n\n"
+                "You just got an email from your website! \n"
+                "Here are the particulars:\n"
+                "Name:      " + name + "\n"
+                "Email:     " + email + "\n"
+                "Phone:     " + phone + "\n"
+                "Subject:   " + subject + "\n"
+            )
+            "Thx - Nitya Ayurveda\n\n"
+            # print('msg-bd----', msg.body)
+            print(mail.send(msg))
+            print('after mail send')
+            response["message"] = "Appointments Post successful"
+            print(response)
+            return response, 200
+
+        except:
+            raise BadRequest("Request failed mail, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class SendEmail(Resource):
     def __call__(self):
         print("In SendEmail")
 
     def get(self, name, age, gender, mode, notes, email, phone, subject):
         print("In Send EMail get")
+        response = {}
         try:
             conn = connect()
             subject = subject.split(',')
@@ -1911,10 +1942,7 @@ class SendEmail(Resource):
 
             datetime_object3 = datetime.strptime(subject[3], "%H:%M")
             time = datetime_object3.strftime("%I:%M %p")
-            print(time)
-
             phone = phone[0:3] + "-" + phone[3:6] + "-" + phone[6:]
-            print(phone)
 
             age = age
             gender = gender
@@ -1959,7 +1987,6 @@ class SendEmail(Resource):
                 "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            print(msg.body)
             mail.send(msg)
 
             # Send email to Practitioner
@@ -1995,33 +2022,12 @@ class SendEmail(Resource):
                 "\n"
                 "Notes: " + str(notes) + "\n"
             )
-            print(msg2.body)
             mail.send(msg2)
-
-            # print("first email sent")
-            # Send email to Host
-            msg = Message(
-                "New Email from Website!",
-                sender="support@nityaayurveda.com",
-                recipients=["Lmarathay@yahoo.com"],
-            )
-            msg.body = (
-                "Hi !\n\n"
-                "You just got an email from your website! \n"
-                "Here are the particulars:\n"
-                "Name:      " + name + "\n"
-                "Email:     " + email + "\n"
-                "Phone:     " + phone + "\n"
-                "Subject:   " + subject + "\n"
-            )
-            "Thx - Nitya Ayurveda\n\n"
-            # print('msg-bd----', msg.body)
-            mail.send(msg)
 
             return "Email Sent", 200
 
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Request failed mail, please try again later.")
         finally:
             disconnect(conn)
 
@@ -2033,18 +2039,13 @@ class SendEmail(Resource):
             data = request.get_json(force=True)
             print(data)
             email = data["email"]
-
-            # msg = Message("Thanks for your Email!", sender='pmarathay@manifestmy.space', recipients=[email])
-            # msg = Message("Thanks for your Email!", sender='info@infiniteoptions.com', recipients=[email])
-            # msg = Message("Thanks for your Email!", sender='leena@nityaayurveda.com', recipients=[email])
-            # msg = Message("Thanks for your Email!", sender='pmarathay@buildsuccess.org', recipients=[email])
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
                 recipients=[email, "Lmarathay@gmail.com",
                             "pmarathay@gmail.com"],
             )
-            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+
             msg.body = (
                 "Hi !\n\n"
                 "We are looking forward to meeting with you! \n"
@@ -2054,23 +2055,10 @@ class SendEmail(Resource):
             # print('msg-bd----', msg.body)
             # print('msg-')
             mail.send(msg)
-
-            # Send email to Host
-            # msg = Message("Email Verification", sender='support@mealsfor.me', recipients=[email])
-
-            # print('MESSAGE----', msg)
-            # print('message complete')
-            # # print("1")
-            # link = url_for('confirm', token=token, hashed=password, _external=True)
-            # # print("2")
-            # print('link---', link)
-            # msg.body = "Click on the link {} to verify your email address.".format(link)
-            # print('msg-bd----', msg.body)
-            # mail.send(msg)
             return "Email Sent", 200
 
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Request failed mail, please try again later.")
         finally:
             disconnect(conn)
 
