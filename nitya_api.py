@@ -1173,6 +1173,7 @@ class AddContact(Resource):
             # print("Received:", data)
 
             name = data["name"]
+            phone = data["phone"]
             email = data["email"]
             subject = data["subject"]
             message = data["message"]
@@ -1195,6 +1196,9 @@ class AddContact(Resource):
                     name = \'"""
                 + name
                 + """\',
+                    phone = \'"""
+                + phone
+                + """\',
                     email = \'"""
                 + email
                 + """\',
@@ -1211,8 +1215,9 @@ class AddContact(Resource):
             print("items: ", items)
 
             # Send receipt emails
-            phone = message
-            SendEmailNewGet.get(self, name, email, phone, subject)
+            # phone = message
+            SendEmailNewGet.get(self, name, email,
+                                str(phone), subject, message)
 
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
@@ -1886,18 +1891,19 @@ class SendEmailNewGet(Resource):
     def __call__(self):
         print("In SendEmailNewGet")
 
-    def get(self, name, email, phone, subject):
+    def get(self, name, email, phone, subject, message):
         print("In SendEmailNewGet")
         response = {}
         try:
             conn = connect()
 
-            # print("first email sent")
+            print("first email sent")
+            print(name, email, phone, subject, message)
             # Send email to Host
             msg = Message(
                 "New Email from Website!",
                 sender="support@nityaayurveda.com",
-                recipients=["Lmarathay@yahoo.com"],
+                recipients=["Lmarathay@yahoo.com", "pmarathay@gmail.com"],
             )
             msg.body = (
                 "Hi !\n\n"
@@ -1905,16 +1911,37 @@ class SendEmailNewGet(Resource):
                 "Here are the particulars:\n"
                 "Name:      " + name + "\n"
                 "Email:     " + email + "\n"
-                "Phone:     " + phone + "\n"
+                "Phone:     " + str(phone) + "\n"
                 "Subject:   " + subject + "\n"
+                "Message:   " + message + "\n"
             )
             "Thx - Nitya Ayurveda\n\n"
             # print('msg-bd----', msg.body)
-            print(mail.send(msg))
+            mail.send(msg)
             print('after mail send')
-            response["message"] = "Appointments Post successful"
-            print(response)
-            return response, 200
+
+            # Send email to Sender
+            msg2 = Message(
+                "New Email from Nitya Ayurveda!",
+                sender="support@nityaayurveda.com",
+                recipients=[email],
+            )
+            msg2.body = (
+                "Hi !\n\n"
+                "Thanks for your email! \n"
+                "Here are the particulars we sent:\n"
+                "Name:      " + name + "\n"
+                "Email:     " + email + "\n"
+                "Phone:     " + str(phone) + "\n"
+                "Subject:   " + subject + "\n"
+                "Message:   " + message + "\n"
+            )
+            "Thx - Nitya Ayurveda\n\n"
+            # print('msg-bd----', msg.body)
+            mail.send(msg2)
+            print('after mail send')
+
+            return 'Email Sent', 200
 
         except:
             raise BadRequest("Request failed mail, please try again later.")
@@ -2075,6 +2102,7 @@ class findCustomerUID(Resource):
             print(data)
             first_name = data["first_name"]
             last_name = data["last_name"]
+            role = data["role"]
             phone = data["phone_num"]
             email = data["email"]
             query = (
@@ -2095,7 +2123,65 @@ class findCustomerUID(Resource):
             )
             items = execute(query, "get", conn)
             print(items)
-            if not items["result"]:
+            if len(items['result']) > 0:
+                for cust in items['result']:
+                    if phone == cust['customer_phone_num']:
+                        if email in cust['customer_email']:
+                            print('in email')
+
+                            items["message"] = "Customer Found"
+                            items["code"] = 200
+                            items['result'] = cust
+                        else:
+                            query = ["CALL nitya.new_customer_uid;"]
+                            NewIDresponse = execute(query[0], "get", conn)
+                            NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                            print('first name', first_name.split(' '))
+                            if len(first_name.split(' ')) > 1:
+                                fName = first_name.split(' ')[0]
+                                lName = first_name.split(' ')[1]
+                            customer_insert_query = (
+                                """
+                                    INSERT INTO nitya.customers
+                                    SET customer_uid = \'"""
+                                + NewcustomerID
+                                + """\',
+                                        customer_created_at = \'"""
+                                + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                                + """\',
+                                        customer_first_name = \'"""
+                                + fName
+                                + """\',
+                                        customer_last_name = \'"""
+                                + lName
+                                + """\',
+                                        customer_phone_num = \'"""
+                                + phone
+                                + """\',
+                                        customer_email = \'"""
+                                + email
+                                + """\',
+                                        role = \'"""
+                                + role
+                                + """\'
+                                    """
+                            )
+
+                            customer_items = execute(
+                                customer_insert_query, "post", conn)
+                            print("NewcustomerID=", NewcustomerID)
+                            # items["message"] = "Email and Phone Number do not exist"
+                            # items["code"] = 404
+                            items["result"] = [{
+                                "customer_uid": NewcustomerID,
+                                "customer_phone_num": phone,
+                                "customer_email": email
+                            }]
+                            items["message"] = "New Customer Created"
+                            items["code"] = 200
+                            return items
+
+            else:
                 query = ["CALL nitya.new_customer_uid;"]
                 NewIDresponse = execute(query[0], "get", conn)
                 NewcustomerID = NewIDresponse["result"][0]["new_id"]
@@ -2105,26 +2191,29 @@ class findCustomerUID(Resource):
                     lName = first_name.split(' ')[1]
                 customer_insert_query = (
                     """
-                    INSERT INTO nitya.customers
-                    SET customer_uid = \'"""
+                        INSERT INTO nitya.customers
+                        SET customer_uid = \'"""
                     + NewcustomerID
                     + """\',
-                     customer_created_at = \'"""
+                            customer_created_at = \'"""
                     + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
                     + """\',
-                        customer_first_name = \'"""
+                            customer_first_name = \'"""
                     + fName
                     + """\',
-                        customer_last_name = \'"""
+                            customer_last_name = \'"""
                     + lName
                     + """\',
-                        customer_phone_num = \'"""
+                            customer_phone_num = \'"""
                     + phone
                     + """\',
-                        customer_email = \'"""
+                            customer_email = \'"""
                     + email
+                    + """\',
+                            role = \'"""
+                    + role
                     + """\'
-                    """
+                        """
                 )
 
                 customer_items = execute(customer_insert_query, "post", conn)
@@ -2139,6 +2228,51 @@ class findCustomerUID(Resource):
                 items["message"] = "New Customer Created"
                 items["code"] = 200
                 return items
+
+            # if not items["result"]:
+            #     query = ["CALL nitya.new_customer_uid;"]
+            #     NewIDresponse = execute(query[0], "get", conn)
+            #     NewcustomerID = NewIDresponse["result"][0]["new_id"]
+            #     print('first name', first_name.split(' '))
+            #     if len(first_name.split(' ')) > 1:
+            #         fName = first_name.split(' ')[0]
+            #         lName = first_name.split(' ')[1]
+            #     customer_insert_query = (
+            #         """
+            #         INSERT INTO nitya.customers
+            #         SET customer_uid = \'"""
+            #         + NewcustomerID
+            #         + """\',
+            #          customer_created_at = \'"""
+            #         + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+            #         + """\',
+            #             customer_first_name = \'"""
+            #         + fName
+            #         + """\',
+            #             customer_last_name = \'"""
+            #         + lName
+            #         + """\',
+            #             customer_phone_num = \'"""
+            #         + phone
+            #         + """\',
+            #             customer_email = \'"""
+            #         + email
+            #         + """\'
+            #         """
+            #     )
+
+            #     customer_items = execute(customer_insert_query, "post", conn)
+            #     print("NewcustomerID=", NewcustomerID)
+            #     # items["message"] = "Email and Phone Number do not exist"
+            #     # items["code"] = 404
+            #     items["result"] = [{
+            #         "customer_uid": NewcustomerID,
+            #         "customer_phone_num": phone,
+            #         "customer_email": email
+            #     }]
+            #     items["message"] = "New Customer Created"
+            #     items["code"] = 200
+            #     return items
             items["message"] = "Customer Found"
             items["code"] = 200
             return items
