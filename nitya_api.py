@@ -2198,9 +2198,7 @@ class findCustomerUID(Resource):
                             print('AFTER ELSE EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
                                 email, cust['customer_email']))
 
-                            items["message"] = "Customer Found"
-                            items["code"] = 200
-                            items['result'] = cust
+                            thresholdEmail.append(cust)
                         else:
                             query = ["CALL nitya.new_customer_uid;"]
                             NewIDresponse = execute(query[0], "get", conn)
