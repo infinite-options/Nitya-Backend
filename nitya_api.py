@@ -76,7 +76,8 @@ import json
 import pytz
 import pymysql
 import requests
-
+import pandas as pd
+from fuzzywuzzy import fuzz
 
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
 RDS_PORT = 3306
@@ -2122,12 +2123,80 @@ class findCustomerUID(Resource):
                 """
             )
             items = execute(query, "get", conn)
-            print(items)
+            # print(items)
+            thresholdEmail = []
             if len(items['result']) > 0:
                 for cust in items['result']:
+                    print('BEFORE PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
+                        phone, cust['customer_phone_num']))
                     if phone == cust['customer_phone_num']:
-                        if email in cust['customer_email']:
-                            print('in email')
+                        print('AFTER PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
+                            phone, cust['customer_phone_num']))
+
+                        print('BEFORE EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                            email, cust['customer_email']))
+                        if fuzz.partial_ratio(email, cust['customer_email']) > 90:
+                            print('AFTER EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                                email, cust['customer_email']))
+                            thresholdEmail.append(cust)
+
+                        else:
+                            query = ["CALL nitya.new_customer_uid;"]
+                            NewIDresponse = execute(query[0], "get", conn)
+                            NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                            print('first name', first_name.split(' '))
+                            if len(first_name.split(' ')) > 1:
+                                fName = first_name.split(' ')[0]
+                                lName = first_name.split(' ')[1]
+                            customer_insert_query = (
+                                """
+                                    INSERT INTO nitya.customers
+                                    SET customer_uid = \'"""
+                                + NewcustomerID
+                                + """\',
+                                        customer_created_at = \'"""
+                                + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                                + """\',
+                                        customer_first_name = \'"""
+                                + fName
+                                + """\',
+                                        customer_last_name = \'"""
+                                + lName
+                                + """\',
+                                        customer_phone_num = \'"""
+                                + phone
+                                + """\',
+                                        customer_email = \'"""
+                                + email
+                                + """\',
+                                        role = \'"""
+                                + role
+                                + """\'
+                                    """
+                            )
+
+                            customer_items = execute(
+                                customer_insert_query, "post", conn)
+                            print("NewcustomerID=", NewcustomerID)
+                            # items["message"] = "Email and Phone Number do not exist"
+                            # items["code"] = 404
+                            items["result"] = [{
+                                "customer_uid": NewcustomerID,
+                                "customer_phone_num": phone,
+                                "customer_email": email
+                            }]
+                            items["message"] = "New Customer Created"
+                            items["code"] = 200
+                            return items
+                    else:
+                        print('AFTER ELSE PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
+                            phone, cust['customer_phone_num']))
+
+                        print('BEFORE ELSE EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                            email, cust['customer_email']))
+                        if fuzz.partial_ratio(email, cust['customer_email']) > 90:
+                            print('AFTER ELSE EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                                email, cust['customer_email']))
 
                             items["message"] = "Customer Found"
                             items["code"] = 200
@@ -2228,53 +2297,26 @@ class findCustomerUID(Resource):
                 items["message"] = "New Customer Created"
                 items["code"] = 200
                 return items
+            print(thresholdEmail)
+            if len(thresholdEmail) > 1:
+                print('in if')
+                for threshold in thresholdEmail:
+                    for thresh in thresholdEmail:
+                        if fuzz.partial_ratio(email, thresh['customer_email']) > fuzz.partial_ratio(email, threshold['customer_email']):
+                            items["message"] = "Customer Found"
+                            items["code"] = 200
+                            items['result'] = thresh
 
-            # if not items["result"]:
-            #     query = ["CALL nitya.new_customer_uid;"]
-            #     NewIDresponse = execute(query[0], "get", conn)
-            #     NewcustomerID = NewIDresponse["result"][0]["new_id"]
-            #     print('first name', first_name.split(' '))
-            #     if len(first_name.split(' ')) > 1:
-            #         fName = first_name.split(' ')[0]
-            #         lName = first_name.split(' ')[1]
-            #     customer_insert_query = (
-            #         """
-            #         INSERT INTO nitya.customers
-            #         SET customer_uid = \'"""
-            #         + NewcustomerID
-            #         + """\',
-            #          customer_created_at = \'"""
-            #         + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
-            #         + """\',
-            #             customer_first_name = \'"""
-            #         + fName
-            #         + """\',
-            #             customer_last_name = \'"""
-            #         + lName
-            #         + """\',
-            #             customer_phone_num = \'"""
-            #         + phone
-            #         + """\',
-            #             customer_email = \'"""
-            #         + email
-            #         + """\'
-            #         """
-            #     )
+            elif len(thresholdEmail) == 1:
+                print('in elif')
+                items["message"] = "Customer Found"
+                items["code"] = 200
+                items['result'] = thresholdEmail[0]
+            else:
+                print('do nothing')
 
-            #     customer_items = execute(customer_insert_query, "post", conn)
-            #     print("NewcustomerID=", NewcustomerID)
-            #     # items["message"] = "Email and Phone Number do not exist"
-            #     # items["code"] = 404
-            #     items["result"] = [{
-            #         "customer_uid": NewcustomerID,
-            #         "customer_phone_num": phone,
-            #         "customer_email": email
-            #     }]
-            #     items["message"] = "New Customer Created"
-            #     items["code"] = 200
-            #     return items
-            items["message"] = "Customer Found"
-            items["code"] = 200
+            # items["message"] = "Customer Found"
+            # items["code"] = 200
             return items
         except:
             raise BadRequest("Request failed, please try again later.")
