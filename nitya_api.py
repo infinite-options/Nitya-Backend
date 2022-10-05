@@ -12,6 +12,8 @@
 # pip3 install pymysql
 # pip3 install python-dateutil
 
+from urllib import response
+from dotenv import load_dotenv
 from email import message
 import os
 import uuid
@@ -19,7 +21,7 @@ import boto3
 import json
 import math
 import httplib2
-
+from os import environ
 from datetime import time, date, datetime, timedelta
 import calendar
 
@@ -66,6 +68,7 @@ import random
 
 #  NEED TO SOLVE THIS
 # from env_keys import BING_API_KEY, RDS_PW
+from dotenv import load_dotenv
 
 import decimal
 import sys
@@ -73,7 +76,8 @@ import json
 import pytz
 import pymysql
 import requests
-
+import pandas as pd
+from fuzzywuzzy import fuzz
 
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
 RDS_PORT = 3306
@@ -86,23 +90,24 @@ APPLICATION_NAME = "nitya-ayurveda"
 # app = Flask(__name__)
 app = Flask(__name__, template_folder="assets")
 
+load_dotenv()
 
 # --------------- Stripe Variables ------------------
 # these key are using for testing. Customer should use their stripe account's keys instead
 
 
 # STRIPE AND PAYPAL KEYS
-paypal_secret_test_key = os.environ.get("paypal_secret_key_test")
-paypal_secret_live_key = os.environ.get("paypal_secret_key_live")
+paypal_secret_test_key = os.getenv("paypal_secret_key_test")
+paypal_secret_live_key = os.getenv("paypal_secret_key_live")
 
-paypal_client_test_key = os.environ.get("paypal_client_test_key")
-paypal_client_live_key = os.environ.get("paypal_client_live_key")
+paypal_client_test_key = os.getenv("paypal_client_test_key")
+paypal_client_live_key = os.getenv("paypal_client_live_key")
 
-stripe_public_test_key = os.environ.get("stripe_public_test_key")
-stripe_secret_test_key = os.environ.get("stripe_secret_test_key")
+stripe_public_test_key = os.getenv("stripe_public_test_key")
+stripe_secret_test_key = os.getenv("stripe_secret_test_key")
 
-stripe_public_live_key = os.environ.get("stripe_public_live_key")
-stripe_secret_live_key = os.environ.get("stripe_secret_live_key")
+stripe_public_live_key = os.getenv("stripe_public_live_key")
+stripe_secret_live_key = os.getenv("stripe_secret_live_key")
 
 stripe.api_key = stripe_secret_test_key
 
@@ -113,15 +118,11 @@ stripe.api_key = stripe_secret_test_key
 CORS(app)
 
 # --------------- Mail Variables ------------------
-# Mail username and password loaded in zappa_settings.json file
-app.config["MAIL_USERNAME"] = os.environ.get("SUPPORT_EMAIL")
-app.config["MAIL_PASSWORD"] = os.environ.get("SUPPORT_PASSWORD")
-app.config["MAIL_DEFAULT_SENDER"] = os.environ.get("SUPPORT_EMAIL")
+# Mail username and password loaded in .env file
+app.config['MAIL_USERNAME'] = os.getenv('SUPPORT_EMAIL')
+app.config['MAIL_PASSWORD'] = os.getenv('SUPPORT_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
 
-# Use locally defined Username and Password to test via localhost and Postman
-# app.config['MAIL_USERNAME'] = 'support@nityaayurveda.com'
-# app.config['MAIL_PASSWORD'] = '<enter password here>'
-# app.config['MAIL_DEFAULT_SENDER'] = 'support@nityaayurveda.com'
 
 # Setting for mydomain.com
 app.config["MAIL_SERVER"] = "smtp.mydomain.com"
@@ -140,7 +141,7 @@ app.config["MAIL_USE_SSL"] = True
 app.config["DEBUG"] = True
 # app.config["DEBUG"] = False
 
-app.config["STRIPE_SECRET_KEY"] = os.environ.get("STRIPE_SECRET_KEY")
+app.config["STRIPE_SECRET_KEY"] = os.getenv("STRIPE_SECRET_KEY")
 
 mail = Mail(app)
 
@@ -197,11 +198,11 @@ ALLOWED_EXTENSIONS = set(["png", "jpg", "jpeg"])
 
 # For Push notification
 isDebug = False
-NOTIFICATION_HUB_KEY = os.environ.get("NOTIFICATION_HUB_KEY")
-NOTIFICATION_HUB_NAME = os.environ.get("NOTIFICATION_HUB_NAME")
+NOTIFICATION_HUB_KEY = os.getenv("NOTIFICATION_HUB_KEY")
+NOTIFICATION_HUB_NAME = os.getenv("NOTIFICATION_HUB_NAME")
 
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
 # Connect to MySQL database (API v2)
 
@@ -424,6 +425,238 @@ class treatments(Resource):
             disconnect(conn)
 
         # http://localhost:4000/api/v2/treatments
+
+# QUERY 2:  GETS ALL TREATMENTS
+
+
+class availability(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 2
+            query = """
+                SELECT * FROM  nitya.days;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class updateAvailability(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            days = data['days']
+            print('days', days)
+
+            for day in days:
+                print('day', day[0]['id'])
+                query = (
+                    """UPDATE nitya.days
+                            SET
+                                morning_start_time = \'""" + day[0]['morning_start_time'] + """\',
+                                morning_end_time = \'""" + day[0]['morning_end_time'] + """\',
+                                afternoon_start_time = \'""" + day[0]['afternoon_start_time'] + """\',
+                                afternoon_end_time = \'""" + day[0]['afternoon_end_time'] + """\'
+                            WHERE days_uid = \'""" + day[0]['id'] + """\'; """
+                )
+
+                items = execute(query, "post", conn)
+                print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class unavailability(Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 2
+            query = """
+                SELECT * FROM  nitya.practioner_availability;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class updateUnavailability(Resource):
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            date = data["date"]
+            start_time_notavailable = data["start_time_notavailable"]
+            end_time_notavailable = data["end_time_notavailable"]
+
+            query_get = """
+                SELECT * FROM  nitya.practioner_availability
+                ORDER by prac_avail_uid;
+                """
+            # The query is executed here
+            items_get = execute(query_get, "get", conn)
+
+            result = int(items_get['result'][-1]['number'])+1
+            print(result)
+            # QUERY 2
+            query = ["CALL nitya.new_practioner_availability_uid;"]
+            print(query)
+            NewIDresponse = execute(query[0], "get", conn)
+            print(NewIDresponse)
+            NewID = NewIDresponse["result"][0]["new_id"]
+            print("NewID = ", NewID)
+
+            query = (
+                """
+                    INSERT INTO nitya.practioner_availability
+                    SET prac_avail_uid  = \'"""
+                + NewID
+                + """\',
+                        number = \'"""
+                + str(result)
+                + """\',
+                        date = \'"""
+                + date
+                + """\',
+                        start_time_notavailable = \'"""
+                + start_time_notavailable
+                + """\',
+                        end_time_notavailable = \'"""
+                + end_time_notavailable
+                + """\';
+                    """
+            )
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+    def put(self):
+        print("\nInside UPDATE Inventory")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            id = data["id"]
+            date = data["date"]
+            start_time_notavailable = data["start_time_notavailable"]
+            end_time_notavailable = data["end_time_notavailable"]
+
+            query = (""" UPDATE nitya.practioner_availability
+                        SET 
+                            date = \'""" + date + """\',
+                            start_time_notavailable = \'""" + start_time_notavailable + """\',
+                            end_time_notavailable = \'""" + end_time_notavailable + """\'
+                        WHERE prac_avail_uid = \'""" + id + """\';
+                    """)
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+class deleteUnavailability(Resource):
+    def post(self, id):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            query = (
+                """
+                    DELETE FROM nitya.practioner_availability
+                   WHERE prac_avail_uid = '"""
+                + id
+                + """';
+                    """
+            )
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
 
 
 class AddBlog(Resource):
@@ -683,6 +916,9 @@ class CreateAppointment(Resource):
             timevalue = data["appt_time"]
             purchase_price = data["purchase_price"]
             purchase_date = data["purchase_date"]
+            mode = data["mode"]
+            gender = data["gender"]
+            age = data["age"]
 
             #  PRINT CUSTOMER APPOINTMENT INFO
             print("first_name", first_name)
@@ -777,7 +1013,7 @@ class CreateAppointment(Resource):
                 + treatment_uid
                 + """\',
                         notes = \'"""
-                + str(notes)
+                + str(notes).replace("'", "''")
                 + """\',
                         appt_date = \'"""
                 + datevalue
@@ -790,6 +1026,15 @@ class CreateAppointment(Resource):
                 + """\',
                         purchase_date = \'"""
                 + purchase_date
+                + """\',
+                        mode = \'"""
+                + mode
+                + """\',
+                        gender = \'"""
+                + gender
+                + """\',
+                        age = \'"""
+                + age
                 + """\'
                     """
             )
@@ -806,16 +1051,22 @@ class CreateAppointment(Resource):
             print(treatment['result'][0]['title'])
             # Send receipt emails
             name = first_name + " " + last_name
+            age = age
+            gender = gender
             message = treatment['result'][0]['title'] + "," + \
                 purchase_price + "," + datevalue + "," + timevalue
             print(name)
-            SendEmail.get(self, name, email, phone_no, message)
-
+            print('os.environ.get("SUPPORT_EMAIL")',
+                  os.environ.get("SUPPORT_EMAIL"))
             response["message"] = "Appointments Post successful"
             response["result"] = items
+            print('response', response)
+            SendEmail.get(self, name, age, gender,
+                          mode, str(notes), email, phone_no, message)
+
             return response, 200
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Request failed app, please try again later.")
         finally:
             disconnect(conn)
 
@@ -923,6 +1174,7 @@ class AddContact(Resource):
             # print("Received:", data)
 
             name = data["name"]
+            phone = data["phone"]
             email = data["email"]
             subject = data["subject"]
             message = data["message"]
@@ -945,6 +1197,9 @@ class AddContact(Resource):
                     name = \'"""
                 + name
                 + """\',
+                    phone = \'"""
+                + phone
+                + """\',
                     email = \'"""
                 + email
                 + """\',
@@ -961,8 +1216,9 @@ class AddContact(Resource):
             print("items: ", items)
 
             # Send receipt emails
-            phone = message
-            SendEmail.get(self, name, email, phone, subject)
+            # phone = message
+            SendEmailNewGet.get(self, name, email,
+                                str(phone), subject, message)
 
             if items["code"] == 281:
                 response["message"] = "Contact Post successful"
@@ -1005,14 +1261,14 @@ class purchaseDetails(Resource):
 
 
 class AvailableAppointments(Resource):
-    def get(self, date_value, duration):
+    def get(self, date_value, duration, mode):
         print("\nInside Available Appointments")
         response = {}
         items = {}
 
         try:
             conn = connect()
-            print("Inside try block", date_value, duration)
+            print("Inside try block", date_value, duration, mode)
 
             # CALCULATE AVAILABLE TIME SLOTS
             query = (
@@ -1071,7 +1327,9 @@ class AvailableAppointments(Resource):
                             FROM nitya.days
                             WHERE dayofweek = DAYOFWEEK('"""
                 + date_value
-                + """')) AS openhrs
+                + """') AND hoursMode = '"""
+                + mode
+                + """') AS openhrs
                         ON TIME(ts.begin_datetime) = openhrs.morning_start_time
                             OR (TIME(ts.begin_datetime) > openhrs.morning_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_datetime) = openhrs.afternoon_start_time
@@ -1549,13 +1807,156 @@ class GoogleCalenderEvents(Resource):
             disconnect(conn)
 
 
+def sendEmail2(recipient, subject, body):
+    print('in sendemail2')
+    with app.app_context():
+        msg = Message(
+            sender="support@nityaayurveda.com",
+            recipients=recipient,
+            subject=subject,
+            body=body
+        )
+        print(msg)
+        mail.send(msg)
+        print('after mail send')
+
+
+app.sendEmail2 = sendEmail2
+
+
+class SendEmailCRON_CLASS(Resource):
+
+    def get(self):
+        print("In Send EMail get")
+        try:
+            conn = connect()
+
+            # # Send email to Client
+            # msg = Message(
+            #     subject="Daily Email Check!",
+            #     sender="support@nityaayurveda.com",
+            #     recipients=["anu.sandhu7893@gmail.com"],
+            # )
+            # msg.body = (
+            #     "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+            # )
+            # print(msg.body)
+            # mail.send(msg)
+            recipient = ["anu.sandhu7893@gmail.com"]
+            subject = "Daily Email Check!"
+            body = (
+                "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong")
+            # mail.send(msg)
+            sendEmail2(recipient, subject, body)
+
+            return "Email Sent", 200
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+def SendEmailCRON():
+    print("In Send EMail get")
+    from flask_mail import Mail, Message
+    try:
+        conn = connect()
+        print('here after connect')
+
+        recipient = ["Lmarathay@yahoo.com",
+                     "pmarathay@gmail.com", "anu.sandhu7893@gmail.com"]
+        print(recipient)
+        subject = "Daily Email Check!"
+        print(subject)
+        body = (
+            "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+        )
+        print(body)
+        # mail.send(msg)
+        sendEmail2(recipient, subject, body)
+
+        print('here after mail send')
+
+        return "Email Sent", 200
+
+    except:
+        raise BadRequest("Email didnt send something is wrong.")
+    finally:
+        disconnect(conn)
+
 # SEND EMAIL
+
+
+class SendEmailNewGet(Resource):
+    def __call__(self):
+        print("In SendEmailNewGet")
+
+    def get(self, name, email, phone, subject, message):
+        print("In SendEmailNewGet")
+        response = {}
+        try:
+            conn = connect()
+
+            print("first email sent")
+            print(name, email, phone, subject, message)
+            # Send email to Host
+            msg = Message(
+                "New Email from Website!",
+                sender="support@nityaayurveda.com",
+                recipients=["Lmarathay@yahoo.com", "pmarathay@gmail.com"],
+            )
+            msg.body = (
+                "Hi !\n\n"
+                "You just got an email from your website! \n"
+                "Here are the particulars:\n"
+                "Name:      " + name + "\n"
+                "Email:     " + email + "\n"
+                "Phone:     " + str(phone) + "\n"
+                "Subject:   " + subject + "\n"
+                "Message:   " + message + "\n"
+            )
+            "Thx - Nitya Ayurveda\n\n"
+            # print('msg-bd----', msg.body)
+            mail.send(msg)
+            print('after mail send')
+
+            # Send email to Sender
+            msg2 = Message(
+                "New Email from Nitya Ayurveda!",
+                sender="support@nityaayurveda.com",
+                recipients=[email],
+            )
+            msg2.body = (
+                "Hi !\n\n"
+                "Thanks for your email! \n"
+                "Here are the particulars we sent:\n"
+                "Name:      " + name + "\n"
+                "Email:     " + email + "\n"
+                "Phone:     " + str(phone) + "\n"
+                "Subject:   " + subject + "\n"
+                "Message:   " + message + "\n"
+            )
+            "Thx - Nitya Ayurveda\n\n"
+            # print('msg-bd----', msg.body)
+            mail.send(msg2)
+            print('after mail send')
+
+            return 'Email Sent', 200
+
+        except:
+            raise BadRequest("Request failed mail, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class SendEmail(Resource):
     def __call__(self):
         print("In SendEmail")
 
-    def get(self, name, email, phone, subject):
+    def get(self, name, age, gender, mode, notes, email, phone, subject):
         print("In Send EMail get")
+        response = {}
         try:
             conn = connect()
             subject = subject.split(',')
@@ -1569,30 +1970,38 @@ class SendEmail(Resource):
 
             datetime_object3 = datetime.strptime(subject[3], "%H:%M")
             time = datetime_object3.strftime("%I:%M %p")
-            print(time)
-
             phone = phone[0:3] + "-" + phone[3:6] + "-" + phone[6:]
-            print(phone)
+
+            age = age
+            gender = gender
+            mode = mode
+            notes = notes
+            if mode == 'Online':
+                location = 'Online - We will send you a Zoom link via email, 5 minutes before the appointment begins'
+            else:
+                location = '6055 Meridian Ave. Suite 40 A, San Jose, CA 95120.'
             # Send email to Client
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
                 # recipients=[email],
-                recipients=[email, "Lmarathay@yahoo.com",
+                recipients=[email,
                             "pmarathay@gmail.com"],
             )
+            # client email
             # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
             msg.body = (
                 "Hello " + str(name) + "," + "\n"
                 "\n"
                 "Thank you for making your appointment with us. \n"
-                "Here are your  appointment details: \n"
+                "Here are your appointment details: \n"
                 "Date: " +
                 str(day) + ", " + str(month_name) + " " +
                 str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
                 "Time: " + str(time) + "\n"
-                "Location: 6055 Meridian Ave. Suite 40 A, San Jose, CA 95120. \n"
+                "Location: " + str(location) + "\n"
                 "\n"
+                "If we need to contact you, we will use the following phone number and email: \n"
                 "Name: " + str(name) + "\n"
                 "Phone: " + str(phone) + "\n"
                 "Email: " + str(email) + "\n"
@@ -1606,33 +2015,47 @@ class SendEmail(Resource):
                 "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            print(msg.body)
             mail.send(msg)
 
-            # print("first email sent")
-            # Send email to Host
-            msg = Message(
-                "New Email from Website!",
+            # Send email to Practitioner
+            msg2 = Message(
+                "New appointment booked!",
                 sender="support@nityaayurveda.com",
-                recipients=["Lmarathay@yahoo.com"],
+                # recipients=[email],
+                recipients=["Lmarathay@yahoo.com",
+                            "pmarathay@gmail.com"],
             )
-            msg.body = (
-                "Hi !\n\n"
-                "You just got an email from your website! \n"
-                "Here are the particulars:\n"
-                "Name:      " + name + "\n"
-                "Email:     " + email + "\n"
-                "Phone:     " + phone + "\n"
-                "Subject:   " + subject + "\n"
+            # practitioner email
+            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+            msg2.body = (
+                "Hello Leena" + "\n"
+                "\n"
+                "Congratulations someone booked another appointment. \n"
+                "Here are the appointment details: \n"
+                "Date: " +
+                str(day) + ", " + str(month_name) + " " +
+                str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
+                "Time: " + str(time) + "\n"
+                "Location: " + str(location) + "\n"
+                "\n"
+                "Name: " + str(name) + "\n"
+                "Phone: " + str(phone) + "\n"
+                "Email: " + str(email) + "\n"
+                "Age: " + str(age) + "\n"
+                "Gender: " + str(gender) + "\n"
+                "\n"
+                "Package purchased: " + str(subject[0]) + "\n"
+                "Total amount paid: " + str(subject[1]) + "\n"
+                "Mode: " + str(mode) + "\n"
+                "\n"
+                "Notes: " + str(notes) + "\n"
             )
-            "Thx - Nitya Ayurveda\n\n"
-            # print('msg-bd----', msg.body)
-            mail.send(msg)
+            mail.send(msg2)
 
             return "Email Sent", 200
 
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Request failed mail, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1644,18 +2067,13 @@ class SendEmail(Resource):
             data = request.get_json(force=True)
             print(data)
             email = data["email"]
-
-            # msg = Message("Thanks for your Email!", sender='pmarathay@manifestmy.space', recipients=[email])
-            # msg = Message("Thanks for your Email!", sender='info@infiniteoptions.com', recipients=[email])
-            # msg = Message("Thanks for your Email!", sender='leena@nityaayurveda.com', recipients=[email])
-            # msg = Message("Thanks for your Email!", sender='pmarathay@buildsuccess.org', recipients=[email])
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
                 recipients=[email, "Lmarathay@gmail.com",
                             "pmarathay@gmail.com"],
             )
-            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+
             msg.body = (
                 "Hi !\n\n"
                 "We are looking forward to meeting with you! \n"
@@ -1665,23 +2083,10 @@ class SendEmail(Resource):
             # print('msg-bd----', msg.body)
             # print('msg-')
             mail.send(msg)
-
-            # Send email to Host
-            # msg = Message("Email Verification", sender='support@mealsfor.me', recipients=[email])
-
-            # print('MESSAGE----', msg)
-            # print('message complete')
-            # # print("1")
-            # link = url_for('confirm', token=token, hashed=password, _external=True)
-            # # print("2")
-            # print('link---', link)
-            # msg.body = "Click on the link {} to verify your email address.".format(link)
-            # print('msg-bd----', msg.body)
-            # mail.send(msg)
             return "Email Sent", 200
 
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Request failed mail, please try again later.")
         finally:
             disconnect(conn)
 
@@ -1696,6 +2101,9 @@ class findCustomerUID(Resource):
 
             data = request.get_json(force=True)
             print(data)
+            first_name = data["first_name"]
+            last_name = data["last_name"]
+            role = data["role"]
             phone = data["phone_num"]
             email = data["email"]
             query = (
@@ -1715,13 +2123,198 @@ class findCustomerUID(Resource):
                 """
             )
             items = execute(query, "get", conn)
-            print(items)
-            if not items["result"]:
-                items["message"] = "Email and Phone Number do not exist"
-                items["code"] = 404
+            # print(items)
+            thresholdEmail = []
+            if len(items['result']) > 0:
+                for cust in items['result']:
+                    print('BEFORE PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
+                        phone, cust['customer_phone_num']))
+                    if phone == cust['customer_phone_num']:
+                        print('AFTER PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
+                            phone, cust['customer_phone_num']))
+
+                        print('BEFORE EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                            email, cust['customer_email']))
+                        if fuzz.partial_ratio(email, cust['customer_email']) > 90:
+                            print('AFTER EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                                email, cust['customer_email']))
+                            thresholdEmail.append(cust)
+
+                        else:
+                            query = ["CALL nitya.new_customer_uid;"]
+                            NewIDresponse = execute(query[0], "get", conn)
+                            NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                            print('first name', first_name.split(' '))
+                            if len(first_name.split(' ')) > 1:
+                                fName = first_name.split(' ')[0]
+                                lName = first_name.split(' ')[1]
+                            customer_insert_query = (
+                                """
+                                    INSERT INTO nitya.customers
+                                    SET customer_uid = \'"""
+                                + NewcustomerID
+                                + """\',
+                                        customer_created_at = \'"""
+                                + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                                + """\',
+                                        customer_first_name = \'"""
+                                + fName
+                                + """\',
+                                        customer_last_name = \'"""
+                                + lName
+                                + """\',
+                                        customer_phone_num = \'"""
+                                + phone
+                                + """\',
+                                        customer_email = \'"""
+                                + email
+                                + """\',
+                                        role = \'"""
+                                + role
+                                + """\'
+                                    """
+                            )
+
+                            customer_items = execute(
+                                customer_insert_query, "post", conn)
+                            print("NewcustomerID=", NewcustomerID)
+                            # items["message"] = "Email and Phone Number do not exist"
+                            # items["code"] = 404
+                            items["result"] = [{
+                                "customer_uid": NewcustomerID,
+                                "customer_phone_num": phone,
+                                "customer_email": email
+                            }]
+                            items["message"] = "New Customer Created"
+                            items["code"] = 200
+                            return items
+                    else:
+                        print('AFTER ELSE PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
+                            phone, cust['customer_phone_num']))
+
+                        print('BEFORE ELSE EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                            email, cust['customer_email']))
+                        if fuzz.partial_ratio(email, cust['customer_email']) > 90:
+                            print('AFTER ELSE EMAIL CHECK', email, cust['customer_email'], fuzz.partial_ratio(
+                                email, cust['customer_email']))
+
+                            thresholdEmail.append(cust)
+                        else:
+                            query = ["CALL nitya.new_customer_uid;"]
+                            NewIDresponse = execute(query[0], "get", conn)
+                            NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                            print('first name', first_name.split(' '))
+                            if len(first_name.split(' ')) > 1:
+                                fName = first_name.split(' ')[0]
+                                lName = first_name.split(' ')[1]
+                            customer_insert_query = (
+                                """
+                                    INSERT INTO nitya.customers
+                                    SET customer_uid = \'"""
+                                + NewcustomerID
+                                + """\',
+                                        customer_created_at = \'"""
+                                + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                                + """\',
+                                        customer_first_name = \'"""
+                                + fName
+                                + """\',
+                                        customer_last_name = \'"""
+                                + lName
+                                + """\',
+                                        customer_phone_num = \'"""
+                                + phone
+                                + """\',
+                                        customer_email = \'"""
+                                + email
+                                + """\',
+                                        role = \'"""
+                                + role
+                                + """\'
+                                    """
+                            )
+
+                            customer_items = execute(
+                                customer_insert_query, "post", conn)
+                            print("NewcustomerID=", NewcustomerID)
+                            # items["message"] = "Email and Phone Number do not exist"
+                            # items["code"] = 404
+                            items["result"] = [{
+                                "customer_uid": NewcustomerID,
+                                "customer_phone_num": phone,
+                                "customer_email": email
+                            }]
+                            items["message"] = "New Customer Created"
+                            items["code"] = 200
+                            return items
+
+            else:
+                query = ["CALL nitya.new_customer_uid;"]
+                NewIDresponse = execute(query[0], "get", conn)
+                NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                print('first name', first_name.split(' '))
+                if len(first_name.split(' ')) > 1:
+                    fName = first_name.split(' ')[0]
+                    lName = first_name.split(' ')[1]
+                customer_insert_query = (
+                    """
+                        INSERT INTO nitya.customers
+                        SET customer_uid = \'"""
+                    + NewcustomerID
+                    + """\',
+                            customer_created_at = \'"""
+                    + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                    + """\',
+                            customer_first_name = \'"""
+                    + fName
+                    + """\',
+                            customer_last_name = \'"""
+                    + lName
+                    + """\',
+                            customer_phone_num = \'"""
+                    + phone
+                    + """\',
+                            customer_email = \'"""
+                    + email
+                    + """\',
+                            role = \'"""
+                    + role
+                    + """\'
+                        """
+                )
+
+                customer_items = execute(customer_insert_query, "post", conn)
+                print("NewcustomerID=", NewcustomerID)
+                # items["message"] = "Email and Phone Number do not exist"
+                # items["code"] = 404
+                items["result"] = [{
+                    "customer_uid": NewcustomerID,
+                    "customer_phone_num": phone,
+                    "customer_email": email
+                }]
+                items["message"] = "New Customer Created"
+                items["code"] = 200
                 return items
-            items["message"] = "Customer Found"
-            items["code"] = 200
+            print(thresholdEmail)
+            if len(thresholdEmail) > 1:
+                print('in if')
+                for threshold in thresholdEmail:
+                    for thresh in thresholdEmail:
+                        if fuzz.partial_ratio(email, thresh['customer_email']) > fuzz.partial_ratio(email, threshold['customer_email']):
+                            items["message"] = "Customer Found"
+                            items["code"] = 200
+                            items['result'] = thresh
+
+            elif len(thresholdEmail) == 1:
+                print('in elif')
+                items["message"] = "Customer Found"
+                items["code"] = 200
+                items['result'] = thresholdEmail[0]
+            else:
+                print('do nothing')
+
+            # items["message"] = "Customer Found"
+            # items["code"] = 200
             return items
         except:
             raise BadRequest("Request failed, please try again later.")
@@ -2744,6 +3337,15 @@ class RegistrationConfirmation(Resource):
 
 api.add_resource(appointments, "/api/v2/appointments")
 api.add_resource(treatments, "/api/v2/treatments")
+
+api.add_resource(availability, "/api/v2/availability")
+api.add_resource(updateAvailability, "/api/v2/updateAvailability")
+
+api.add_resource(unavailability, "/api/v2/unavailability")
+api.add_resource(updateUnavailability, "/api/v2/updateUnavailability")
+api.add_resource(deleteUnavailability,
+                 "/api/v2/deleteUnavailability/<string:id>")
+
 api.add_resource(FullBlog, "/api/v2/fullBlog/<string:blog_id>")
 api.add_resource(TruncatedBlog, "/api/v2/truncatedBlog")
 api.add_resource(AddBlog, "/api/v2/addBlog")
@@ -2772,13 +3374,13 @@ api.add_resource(UpdateAccessToken,
 api.add_resource(CustomerToken, "/api/v2/customerToken/<string:customer_uid>")
 api.add_resource(
     AvailableAppointments,
-    "/api/v2/availableAppointments/<string:date_value>/<string:duration>",
+    "/api/v2/availableAppointments/<string:date_value>/<string:duration>/<string:mode>",
 )
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
 api.add_resource(SendEmail, "/api/v2/sendEmail")
-
+api.add_resource(SendEmailCRON_CLASS, "/api/v2/sendEmailCRON_CLASS")
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
