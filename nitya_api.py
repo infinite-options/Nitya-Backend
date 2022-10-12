@@ -1888,6 +1888,50 @@ def SendEmailCRON():
 # SEND EMAIL
 
 
+class SendEmailPaymentIntent(Resource):
+    def __call__(self):
+        print("In SendEmailPaymentIntent")
+
+    def post(self):
+        print("In SendEmailPaymentIntent")
+        response = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            name = data["name"]
+            phone = data["phone"]
+            email = data["email"]
+            message = data["message"]
+            print("first email sent")
+            print(name, email, phone, message)
+            # Send email to Host
+            msg = Message(
+                "Payment Intent Error",
+                sender="support@nityaayurveda.com",
+                recipients=["pmarathay@gmail.com", "anu.sandhu7893@gmail.com"],
+            )
+            msg.body = (
+                "Hi !\n\n"
+                "Payment intent failed For the below customer \n"
+                "Here are the particulars:\n"
+                "Name:      " + name + "\n"
+                "Email:     " + email + "\n"
+                "Phone:     " + str(phone) + "\n"
+                "Message:   " + message + "\n"
+            )
+            "Thx - Nitya Ayurveda\n\n"
+            # print('msg-bd----', msg.body)
+            mail.send(msg)
+            print('after mail send')
+
+            return 'Email Sent', 200
+
+        except:
+            raise BadRequest("Request failed mail, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class SendEmailNewGet(Resource):
     def __call__(self):
         print("In SendEmailNewGet")
@@ -3427,6 +3471,7 @@ api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
 api.add_resource(SendEmail, "/api/v2/sendEmail")
+api.add_resource(SendEmailPaymentIntent, "/api/v2/SendEmailPaymentIntent")
 api.add_resource(SendEmailCRON_CLASS, "/api/v2/sendEmailCRON_CLASS")
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
