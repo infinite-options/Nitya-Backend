@@ -1888,6 +1888,50 @@ def SendEmailCRON():
 # SEND EMAIL
 
 
+class SendEmailPaymentIntent(Resource):
+    def __call__(self):
+        print("In SendEmailPaymentIntent")
+
+    def post(self):
+        print("In SendEmailPaymentIntent")
+        response = {}
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            name = data["name"]
+            phone = data["phone"]
+            email = data["email"]
+            message = data["message"]
+            print("first email sent")
+            print(name, email, phone, message)
+            # Send email to Host
+            msg = Message(
+                "Payment Intent Error",
+                sender="support@nityaayurveda.com",
+                recipients=["pmarathay@gmail.com", "anu.sandhu7893@gmail.com"],
+            )
+            msg.body = (
+                "Hi !\n\n"
+                "Payment intent failed For the below customer \n"
+                "Here are the particulars:\n"
+                "Name:      " + name + "\n"
+                "Email:     " + email + "\n"
+                "Phone:     " + str(phone) + "\n"
+                "Message:   " + message + "\n"
+            )
+            "Thx - Nitya Ayurveda\n\n"
+            # print('msg-bd----', msg.body)
+            mail.send(msg)
+            print('after mail send')
+
+            return 'Email Sent', 200
+
+        except:
+            raise BadRequest("Request failed mail, please try again later.")
+        finally:
+            disconnect(conn)
+
+
 class SendEmailNewGet(Resource):
     def __call__(self):
         print("In SendEmailNewGet")
@@ -2140,54 +2184,54 @@ class findCustomerUID(Resource):
                                 email, cust['customer_email']))
                             thresholdEmail.append(cust)
 
-                        else:
-                            query = ["CALL nitya.new_customer_uid;"]
-                            NewIDresponse = execute(query[0], "get", conn)
-                            NewcustomerID = NewIDresponse["result"][0]["new_id"]
-                            print('first name', first_name.split(' '))
-                            if len(first_name.split(' ')) > 1:
-                                fName = first_name.split(' ')[0]
-                                lName = first_name.split(' ')[1]
-                            customer_insert_query = (
-                                """
-                                    INSERT INTO nitya.customers
-                                    SET customer_uid = \'"""
-                                + NewcustomerID
-                                + """\',
-                                        customer_created_at = \'"""
-                                + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
-                                + """\',
-                                        customer_first_name = \'"""
-                                + fName
-                                + """\',
-                                        customer_last_name = \'"""
-                                + lName
-                                + """\',
-                                        customer_phone_num = \'"""
-                                + phone
-                                + """\',
-                                        customer_email = \'"""
-                                + email
-                                + """\',
-                                        role = \'"""
-                                + role
-                                + """\'
-                                    """
-                            )
+                        # else:
+                        #     query = ["CALL nitya.new_customer_uid;"]
+                        #     NewIDresponse = execute(query[0], "get", conn)
+                        #     NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                        #     print('first name', first_name.split(' '))
+                        #     if len(first_name.split(' ')) > 1:
+                        #         fName = first_name.split(' ')[0]
+                        #         lName = first_name.split(' ')[1]
+                        #     customer_insert_query = (
+                        #         """
+                        #             INSERT INTO nitya.customers
+                        #             SET customer_uid = \'"""
+                        #         + NewcustomerID
+                        #         + """\',
+                        #                 customer_created_at = \'"""
+                        #         + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                        #         + """\',
+                        #                 customer_first_name = \'"""
+                        #         + fName
+                        #         + """\',
+                        #                 customer_last_name = \'"""
+                        #         + lName
+                        #         + """\',
+                        #                 customer_phone_num = \'"""
+                        #         + phone
+                        #         + """\',
+                        #                 customer_email = \'"""
+                        #         + email
+                        #         + """\',
+                        #                 role = \'"""
+                        #         + role
+                        #         + """\'
+                        #             """
+                        #     )
 
-                            customer_items = execute(
-                                customer_insert_query, "post", conn)
-                            print("NewcustomerID=", NewcustomerID)
-                            # items["message"] = "Email and Phone Number do not exist"
-                            # items["code"] = 404
-                            items["result"] = [{
-                                "customer_uid": NewcustomerID,
-                                "customer_phone_num": phone,
-                                "customer_email": email
-                            }]
-                            items["message"] = "New Customer Created"
-                            items["code"] = 200
-                            return items
+                        #     customer_items = execute(
+                        #         customer_insert_query, "post", conn)
+                        #     print("NewcustomerID=", NewcustomerID)
+                        #     # items["message"] = "Email and Phone Number do not exist"
+                        #     # items["code"] = 404
+                        #     items["result"] = [{
+                        #         "customer_uid": NewcustomerID,
+                        #         "customer_phone_num": phone,
+                        #         "customer_email": email
+                        #     }]
+                        #     items["message"] = "New Customer Created"
+                        #     items["code"] = 200
+                        #     return items
                     else:
                         print('AFTER ELSE PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
                             phone, cust['customer_phone_num']))
@@ -2199,54 +2243,54 @@ class findCustomerUID(Resource):
                                 email, cust['customer_email']))
 
                             thresholdEmail.append(cust)
-                        else:
-                            query = ["CALL nitya.new_customer_uid;"]
-                            NewIDresponse = execute(query[0], "get", conn)
-                            NewcustomerID = NewIDresponse["result"][0]["new_id"]
-                            print('first name', first_name.split(' '))
-                            if len(first_name.split(' ')) > 1:
-                                fName = first_name.split(' ')[0]
-                                lName = first_name.split(' ')[1]
-                            customer_insert_query = (
-                                """
-                                    INSERT INTO nitya.customers
-                                    SET customer_uid = \'"""
-                                + NewcustomerID
-                                + """\',
-                                        customer_created_at = \'"""
-                                + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
-                                + """\',
-                                        customer_first_name = \'"""
-                                + fName
-                                + """\',
-                                        customer_last_name = \'"""
-                                + lName
-                                + """\',
-                                        customer_phone_num = \'"""
-                                + phone
-                                + """\',
-                                        customer_email = \'"""
-                                + email
-                                + """\',
-                                        role = \'"""
-                                + role
-                                + """\'
-                                    """
-                            )
+                        # else:
+                        #     query = ["CALL nitya.new_customer_uid;"]
+                        #     NewIDresponse = execute(query[0], "get", conn)
+                        #     NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                        #     print('first name', first_name.split(' '))
+                        #     if len(first_name.split(' ')) > 1:
+                        #         fName = first_name.split(' ')[0]
+                        #         lName = first_name.split(' ')[1]
+                        #     customer_insert_query = (
+                        #         """
+                        #             INSERT INTO nitya.customers
+                        #             SET customer_uid = \'"""
+                        #         + NewcustomerID
+                        #         + """\',
+                        #                 customer_created_at = \'"""
+                        #         + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                        #         + """\',
+                        #                 customer_first_name = \'"""
+                        #         + fName
+                        #         + """\',
+                        #                 customer_last_name = \'"""
+                        #         + lName
+                        #         + """\',
+                        #                 customer_phone_num = \'"""
+                        #         + phone
+                        #         + """\',
+                        #                 customer_email = \'"""
+                        #         + email
+                        #         + """\',
+                        #                 role = \'"""
+                        #         + role
+                        #         + """\'
+                        #             """
+                        #     )
 
-                            customer_items = execute(
-                                customer_insert_query, "post", conn)
-                            print("NewcustomerID=", NewcustomerID)
-                            # items["message"] = "Email and Phone Number do not exist"
-                            # items["code"] = 404
-                            items["result"] = [{
-                                "customer_uid": NewcustomerID,
-                                "customer_phone_num": phone,
-                                "customer_email": email
-                            }]
-                            items["message"] = "New Customer Created"
-                            items["code"] = 200
-                            return items
+                        #     customer_items = execute(
+                        #         customer_insert_query, "post", conn)
+                        #     print("NewcustomerID=", NewcustomerID)
+                        #     # items["message"] = "Email and Phone Number do not exist"
+                        #     # items["code"] = 404
+                        #     items["result"] = [{
+                        #         "customer_uid": NewcustomerID,
+                        #         "customer_phone_num": phone,
+                        #         "customer_email": email
+                        #     }]
+                        #     items["message"] = "New Customer Created"
+                        #     items["code"] = 200
+                        #     return items
 
             else:
                 query = ["CALL nitya.new_customer_uid;"]
@@ -2311,7 +2355,54 @@ class findCustomerUID(Resource):
                 items["code"] = 200
                 items['result'] = thresholdEmail[0]
             else:
-                print('do nothing')
+                print('else create new customer')
+                query = ["CALL nitya.new_customer_uid;"]
+                NewIDresponse = execute(query[0], "get", conn)
+                NewcustomerID = NewIDresponse["result"][0]["new_id"]
+                print('first name', first_name.split(' '))
+                if len(first_name.split(' ')) > 1:
+                    fName = first_name.split(' ')[0]
+                    lName = first_name.split(' ')[1]
+                customer_insert_query = (
+                    """
+                        INSERT INTO nitya.customers
+                        SET customer_uid = \'"""
+                    + NewcustomerID
+                    + """\',
+                            customer_created_at = \'"""
+                    + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                    + """\',
+                            customer_first_name = \'"""
+                    + fName
+                    + """\',
+                            customer_last_name = \'"""
+                    + lName
+                    + """\',
+                            customer_phone_num = \'"""
+                    + phone
+                    + """\',
+                            customer_email = \'"""
+                    + email
+                    + """\',
+                            role = \'"""
+                    + role
+                    + """\'
+                        """
+                )
+
+                customer_items = execute(
+                    customer_insert_query, "post", conn)
+                print("NewcustomerID=", NewcustomerID)
+                # items["message"] = "Email and Phone Number do not exist"
+                # items["code"] = 404
+                items["result"] = [{
+                    "customer_uid": NewcustomerID,
+                    "customer_phone_num": phone,
+                    "customer_email": email
+                }]
+                items["message"] = "New Customer Created"
+                items["code"] = 200
+                return items
 
             # items["message"] = "Customer Found"
             # items["code"] = 200
@@ -3380,6 +3471,7 @@ api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
 
 api.add_resource(SendEmail, "/api/v2/sendEmail")
+api.add_resource(SendEmailPaymentIntent, "/api/v2/SendEmailPaymentIntent")
 api.add_resource(SendEmailCRON_CLASS, "/api/v2/sendEmailCRON_CLASS")
 api.add_resource(findCustomerUID, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
