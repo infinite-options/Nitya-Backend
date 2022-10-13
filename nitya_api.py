@@ -931,6 +931,7 @@ class CreateAppointment(Resource):
             print("time", timevalue)
             print("purchase_price", purchase_price)
             print("purchase_date", purchase_date)
+            print("age", age)
 
             #  CREATE CUSTOMER APPOINTMENT UID
             # Query [0]  Get New UID
@@ -1918,8 +1919,8 @@ class SendEmailPaymentIntent(Resource):
                 "Email:     " + email + "\n"
                 "Phone:     " + str(phone) + "\n"
                 "Message:   " + message + "\n"
+                "Thank you - Nitya Ayurveda\n\n"
             )
-            "Thx - Nitya Ayurveda\n\n"
             # print('msg-bd----', msg.body)
             mail.send(msg)
             print('after mail send')
@@ -1959,8 +1960,9 @@ class SendEmailNewGet(Resource):
                 "Phone:     " + str(phone) + "\n"
                 "Subject:   " + subject + "\n"
                 "Message:   " + message + "\n"
+                "Thank you - Nitya Ayurveda\n\n"
             )
-            "Thx - Nitya Ayurveda\n\n"
+            
             # print('msg-bd----', msg.body)
             mail.send(msg)
             print('after mail send')
@@ -1980,8 +1982,8 @@ class SendEmailNewGet(Resource):
                 "Phone:     " + str(phone) + "\n"
                 "Subject:   " + subject + "\n"
                 "Message:   " + message + "\n"
+                "Thank you - Nitya Ayurveda\n\n"
             )
-            "Thx - Nitya Ayurveda\n\n"
             # print('msg-bd----', msg.body)
             mail.send(msg2)
             print('after mail send')
@@ -2122,7 +2124,7 @@ class SendEmail(Resource):
                 "Hi !\n\n"
                 "We are looking forward to meeting with you! \n"
                 "Email support@nityaayurveda.com if you need to get in touch with us directly.\n"
-                "Thx - Nitya Ayurveda\n\n"
+                "Thank you - Nitya Ayurveda\n\n"
             )
             # print('msg-bd----', msg.body)
             # print('msg-')
