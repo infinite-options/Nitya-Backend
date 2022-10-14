@@ -1962,7 +1962,7 @@ class SendEmailNewGet(Resource):
                 "Message:   " + message + "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            
+
             # print('msg-bd----', msg.body)
             mail.send(msg)
             print('after mail send')
@@ -2333,11 +2333,11 @@ class findCustomerUID(Resource):
                 print("NewcustomerID=", NewcustomerID)
                 # items["message"] = "Email and Phone Number do not exist"
                 # items["code"] = 404
-                items["result"] = [{
+                items["result"] = {
                     "customer_uid": NewcustomerID,
                     "customer_phone_num": phone,
                     "customer_email": email
-                }]
+                }
                 items["message"] = "New Customer Created"
                 items["code"] = 200
                 return items
@@ -2397,11 +2397,11 @@ class findCustomerUID(Resource):
                 print("NewcustomerID=", NewcustomerID)
                 # items["message"] = "Email and Phone Number do not exist"
                 # items["code"] = 404
-                items["result"] = [{
+                items["result"] = {
                     "customer_uid": NewcustomerID,
                     "customer_phone_num": phone,
                     "customer_email": email
-                }]
+                }
                 items["message"] = "New Customer Created"
                 items["code"] = 200
                 return items
