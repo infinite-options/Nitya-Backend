@@ -2302,6 +2302,9 @@ class findCustomerUID(Resource):
                 if len(first_name.split(' ')) > 1:
                     fName = first_name.split(' ')[0]
                     lName = first_name.split(' ')[1]
+                else:
+                    fName = first_name
+                    lName = ''
                 customer_insert_query = (
                     """
                         INSERT INTO nitya.customers
@@ -2365,6 +2368,9 @@ class findCustomerUID(Resource):
                 if len(first_name.split(' ')) > 1:
                     fName = first_name.split(' ')[0]
                     lName = first_name.split(' ')[1]
+                else:
+                    fName = first_name
+                    lName = ''
                 customer_insert_query = (
                     """
                         INSERT INTO nitya.customers
