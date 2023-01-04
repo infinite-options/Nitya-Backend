@@ -1903,6 +1903,9 @@ class SendEmailPaymentIntent(Resource):
             phone = data["phone"]
             email = data["email"]
             message = data["message"]
+            error = data['error']
+            endpoint_call = data['endpoint_call']
+            jsonObject_sent = data['jsonObject_sent']
             print("first email sent")
             print(name, email, phone, message)
             # Send email to Host
@@ -1919,6 +1922,9 @@ class SendEmailPaymentIntent(Resource):
                 "Email:     " + email + "\n"
                 "Phone:     " + str(phone) + "\n"
                 "Message:   " + message + "\n"
+                "Error:     " + error + "\n"
+                "Error occured at this point:" + endpoint_call + "\n"
+                "JSON Object we sent:" + jsonObject_sent + "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
             # print('msg-bd----', msg.body)
