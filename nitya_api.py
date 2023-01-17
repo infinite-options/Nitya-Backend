@@ -77,7 +77,7 @@ import pytz
 import pymysql
 import requests
 import pandas as pd
-from fuzzywuzzy import fuzz
+# from fuzzywuzzy import fuzz
 
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
 RDS_PORT = 3306
@@ -3435,6 +3435,84 @@ class RegistrationConfirmation(Resource):
             disconnect(conn)
 
 
+# -- Nitya Database Queries start here -------------------------------------------------------------------------------
+
+class Diseases (Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 1
+            query = """
+                SELECT * FROM nitya.diseases;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Appointments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+class Symptoms (Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 1
+            query = """
+                SELECT * FROM nitya.symptoms;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Appointments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+class Diseases_Symptoms (Resource):
+    def get(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 1
+            query = """
+                SELECT * 
+                FROM nitya.ds
+                LEFT JOIN nitya.diseases
+                ON ds.ds_disease_uid = diseases.disease_uid
+                LEFT JOIN nitya.symptoms
+                ON ds.ds_symptom_uid = symptoms.symptom_uid;
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Appointments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
 
@@ -3503,6 +3581,11 @@ api.add_resource(WorkshopAttendees, "/api/v2/WorkshopAttendees")
 api.add_resource(
     RegistrationConfirmation, "/api/v2/RegistrationConfirmation/<string:email>"
 )
+
+
+api.add_resource(Diseases, "/api/v2/diseases")
+api.add_resource(Symptoms, "/api/v2/symptoms")
+api.add_resource(Diseases_Symptoms, "/api/v2/ds")
 
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
