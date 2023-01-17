@@ -77,7 +77,7 @@ import pytz
 import pymysql
 import requests
 import pandas as pd
-# from fuzzywuzzy import fuzz
+from fuzzywuzzy import fuzz
 
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
 RDS_PORT = 3306
