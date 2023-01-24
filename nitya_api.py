@@ -3513,6 +3513,154 @@ class Diseases_Symptoms (Resource):
                 "Appointments Request failed, please try again later.")
         finally:
             disconnect(conn)
+
+
+
+class DiseasesFromSymptoms (Resource):
+    def get(self, symptom_uid):
+        response = {}
+        items = {}
+        print("\nInside DiseasesFromSymptoms", symptom_uid)
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            # QUERY 1
+            query = """
+                SELECT * 
+                FROM nitya.ds
+                LEFT JOIN nitya.diseases
+                ON ds.ds_disease_uid = diseases.disease_uid
+                LEFT JOIN nitya.symptoms
+                ON ds.ds_symptom_uid = symptoms.symptom_uid
+                WHERE symptom_uid = \'""" + symptom_uid + """\';
+                """
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Appointments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+class DSFromSymptoms (Resource):
+    def post(self):
+        response = {}
+        items = {}
+        print("\nInside NewEndpoint")
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            data = request.get_json(force=True)
+            print("Received:", data)
+            symptom_uid = "(" + str(data["symptom_uid"])[1:-1] + ")"
+            print("Symptom_UID:", symptom_uid)
+            # symptom_uid =str(('550-000001', '550-000002'))
+            
+            
+            # QUERY 1
+            query = """
+                SELECT d_uid as disease_uid, disease_name, disease_description, GROUP_CONCAT(DISTINCT(s_uid)) as selected_symptoms_uid, GROUP_CONCAT(s_uid) as all_symptoms_uid, GROUP_CONCAT(symptom_name) as symptoms_names
+                FROM (
+                -- Diseases assoiated with the input Symptoms
+                    SELECT ds_uid as ds_uid,
+                        ds_disease_uid as d_uid,
+                        ds_symptom_uid as s_uid,
+                        diseases.disease_name,
+                        diseases.disease_description
+                    FROM nitya.ds a
+                    LEFT JOIN nitya.diseases
+                        ON a.ds_disease_uid = diseases.disease_uid
+                    WHERE a.ds_symptom_uid in """ + symptom_uid + """ 
+                    )as d
+                LEFT JOIN (
+                -- Symptoms names and description
+                    SELECT *
+                    FROM nitya.ds
+                    LEFT JOIN nitya.symptoms
+                        ON ds_symptom_uid = symptoms.symptom_uid
+                ) as b
+                ON d.d_uid = b.ds_disease_uid
+                GROUP BY d_uid;
+                """
+            # print(query)
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # print("Query Result: ", items["result"])
+            
+
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "New Endpoint Failed.")
+        finally:
+            disconnect(conn)
+
+# NEW ENDPOINT IS FOR TESTING AND DEVELOPMENT ONLY
+class NewEndpoint (Resource):
+    def post(self):
+        response = {}
+        items = {}
+        print("\nInside NewEndpoint")
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            data = request.get_json(force=True)
+            print("Received:", data)
+            symptom_uid = "(" + str(data["symptom_uid"])[1:-1] + ")"
+            print("Symptom_UID:", symptom_uid)
+            # symptom_uid =str(('550-000001', '550-000002'))
+            
+            
+            # QUERY 1
+            query = """
+                SELECT d_uid as disease_uid, disease_name, disease_description, GROUP_CONCAT(DISTINCT(s_uid)) as selected_symptoms_uid, GROUP_CONCAT(s_uid) as all_symptoms_uid, GROUP_CONCAT(symptom_name) as symptoms_names
+                FROM (
+                -- Diseases assoiated with the input Symptoms
+                    SELECT ds_uid as ds_uid,
+                        ds_disease_uid as d_uid,
+                        ds_symptom_uid as s_uid,
+                        diseases.disease_name,
+                        diseases.disease_description
+                    FROM nitya.ds a
+                    LEFT JOIN nitya.diseases
+                        ON a.ds_disease_uid = diseases.disease_uid
+                    WHERE a.ds_symptom_uid in """ + symptom_uid + """ 
+                    )as d
+                LEFT JOIN (
+                -- Symptoms names and description
+                    SELECT *
+                    FROM nitya.ds
+                    LEFT JOIN nitya.symptoms
+                        ON ds_symptom_uid = symptoms.symptom_uid
+                ) as b
+                ON d.d_uid = b.ds_disease_uid
+                GROUP BY d_uid;
+                """
+            # print(query)
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # print("Query Result: ", items["result"])
+            
+
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "New Endpoint Failed.")
+        finally:
+            disconnect(conn)
 # -- DEFINE APIS -------------------------------------------------------------------------------
 
 
@@ -3587,6 +3735,10 @@ api.add_resource(Diseases, "/api/v2/diseases")
 api.add_resource(Symptoms, "/api/v2/symptoms")
 api.add_resource(Diseases_Symptoms, "/api/v2/ds")
 
+api.add_resource(DSFromSymptoms, "/api/v2/dsfroms")
+api.add_resource(DiseasesFromSymptoms, "/api/v2/dfroms/<string:symptom_uid>")
+
+api.add_resource(NewEndpoint, "/api/v2/newEndpoint")
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
 if __name__ == "__main__":
