@@ -3608,9 +3608,8 @@ class DSFromSymptoms (Resource):
                 SELECT d_uid AS disease_uid, disease_name, disease_description,CONCAT('[',GROUP_CONCAT(JSON_OBJECT('s_uid', symptom_uid,'s_name', symptom_name)),']') AS sym_uid_name
                 FROM (
                 -- Diseases associated with the input Symptoms
-                    SELECT ds_uid AS ds_uid,
+                    SELECT DISTINCT
                         ds_disease_uid AS d_uid,
-                        ds_symptom_uid AS selected_s_uid,
                         diseases.disease_name,
                         diseases.disease_description
                     FROM nitya.ds a
@@ -3623,7 +3622,7 @@ class DSFromSymptoms (Resource):
                     SELECT *
                     FROM nitya.ds
                     LEFT JOIN (
-                        SELECT * -- , CONCAT('{"id":"',symptom_uid,'","name":"',symptom_name,'"','}') as sym_uid_name
+                        SELECT *
                         FROM nitya.symptoms
                         ) AS s
                     ON ds_symptom_uid = s.symptom_uid
