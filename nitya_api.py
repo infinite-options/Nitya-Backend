@@ -3481,7 +3481,43 @@ class Symptoms (Resource):
             return response, 200
         except:
             raise BadRequest(
-                "Appointments Request failed, please try again later.")
+                "Symptoms GET Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+    def post(self):
+        response = {}
+        items = {}
+        try:
+            # Connect to the DataBase
+            conn = connect()
+            data = request.get_json(force=True)
+            print("Received:", data)
+            symptom_uid = "(" + str(data["symptom_uid"])[1:-1] + ")"
+            print("Symptom_UID:", symptom_uid)
+            # symptom_uid =str(('550-000001', '550-000002'))
+            
+            
+            # QUERY 1 (WHERE a.ds_symptom_uid in """ + symptom_uid + """)
+            query = """
+                SELECT *
+                FROM nitya.symptoms
+                WHERE symptoms.symptom_uid in """ + symptom_uid + """
+                """
+            print(query)
+            # The query is executed here
+            items = execute(query, "get", conn)
+            # The return message and result from query execution
+            response["message"] = "successful"
+            response["result"] = items["result"]
+            # print("Query Result: ", items["result"])
+            
+
+            # Returns code and response
+            return response, 200
+        except:
+            raise BadRequest(
+                "Symptoms POST Request failed, please try again later.")
         finally:
             disconnect(conn)
 
@@ -3551,7 +3587,7 @@ class DSFromSymptoms (Resource):
     def post(self):
         response = {}
         items = {}
-        print("\nInside NewEndpoint")
+        print("\nInside DSFromSymptoms")
         try:
             # Connect to the DataBase
             conn = connect()
@@ -3562,28 +3598,36 @@ class DSFromSymptoms (Resource):
             # symptom_uid =str(('550-000001', '550-000002'))
             
             
-            # QUERY 1
+            # QUERY 1 (WHERE a.ds_symptom_uid in """ + symptom_uid + """)
+            setSessionQuery = """ SET SESSION group_concat_max_len = @@max_allowed_packet;"""
+            setSession = execute(setSessionQuery, "get", conn)
+            response["set session"] = setSession["result"]
+
             query = """
-                SELECT d_uid as disease_uid, disease_name, disease_description, GROUP_CONCAT(DISTINCT(s_uid)) as selected_symptoms_uid, GROUP_CONCAT(s_uid) as all_symptoms_uid, GROUP_CONCAT(symptom_name) as symptoms_names
+               
+                SELECT d_uid AS disease_uid, disease_name, disease_description,CONCAT('[',GROUP_CONCAT(JSON_OBJECT('s_uid', symptom_uid,'s_name', symptom_name)),']') AS sym_uid_name
                 FROM (
-                -- Diseases assoiated with the input Symptoms
-                    SELECT ds_uid as ds_uid,
-                        ds_disease_uid as d_uid,
-                        ds_symptom_uid as s_uid,
+                -- Diseases associated with the input Symptoms
+                    SELECT ds_uid AS ds_uid,
+                        ds_disease_uid AS d_uid,
+                        ds_symptom_uid AS selected_s_uid,
                         diseases.disease_name,
                         diseases.disease_description
                     FROM nitya.ds a
                     LEFT JOIN nitya.diseases
                         ON a.ds_disease_uid = diseases.disease_uid
-                    WHERE a.ds_symptom_uid in """ + symptom_uid + """ 
-                    )as d
+                    WHERE a.ds_symptom_uid in """ + symptom_uid + """
+                    )AS d
                 LEFT JOIN (
                 -- Symptoms names and description
                     SELECT *
                     FROM nitya.ds
-                    LEFT JOIN nitya.symptoms
-                        ON ds_symptom_uid = symptoms.symptom_uid
-                ) as b
+                    LEFT JOIN (
+                        SELECT * -- , CONCAT('{"id":"',symptom_uid,'","name":"',symptom_name,'"','}') as sym_uid_name
+                        FROM nitya.symptoms
+                        ) AS s
+                    ON ds_symptom_uid = s.symptom_uid
+                    ) AS b
                 ON d.d_uid = b.ds_disease_uid
                 GROUP BY d_uid;
                 """
@@ -3600,7 +3644,7 @@ class DSFromSymptoms (Resource):
             return response, 200
         except:
             raise BadRequest(
-                "New Endpoint Failed.")
+                "DSFromSymptoms Endpoint Failed.")
         finally:
             disconnect(conn)
 
@@ -3620,32 +3664,13 @@ class NewEndpoint (Resource):
             # symptom_uid =str(('550-000001', '550-000002'))
             
             
-            # QUERY 1
+            # QUERY 1 (WHERE a.ds_symptom_uid in """ + symptom_uid + """)
             query = """
-                SELECT d_uid as disease_uid, disease_name, disease_description, GROUP_CONCAT(DISTINCT(s_uid)) as selected_symptoms_uid, GROUP_CONCAT(s_uid) as all_symptoms_uid, GROUP_CONCAT(symptom_name) as symptoms_names
-                FROM (
-                -- Diseases assoiated with the input Symptoms
-                    SELECT ds_uid as ds_uid,
-                        ds_disease_uid as d_uid,
-                        ds_symptom_uid as s_uid,
-                        diseases.disease_name,
-                        diseases.disease_description
-                    FROM nitya.ds a
-                    LEFT JOIN nitya.diseases
-                        ON a.ds_disease_uid = diseases.disease_uid
-                    WHERE a.ds_symptom_uid in """ + symptom_uid + """ 
-                    )as d
-                LEFT JOIN (
-                -- Symptoms names and description
-                    SELECT *
-                    FROM nitya.ds
-                    LEFT JOIN nitya.symptoms
-                        ON ds_symptom_uid = symptoms.symptom_uid
-                ) as b
-                ON d.d_uid = b.ds_disease_uid
-                GROUP BY d_uid;
+                SELECT *
+                FROM nitya.symptoms
+                WHERE symptoms.symptom_uid in """ + symptom_uid + """
                 """
-            # print(query)
+            print(query)
             # The query is executed here
             items = execute(query, "get", conn)
             # The return message and result from query execution
