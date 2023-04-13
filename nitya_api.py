@@ -12,25 +12,15 @@
 # pip3 install pymysql
 # pip3 install python-dateutil
 
-from urllib import response
 from dotenv import load_dotenv
-from email import message
 import os
-import uuid
 import boto3
 import json
-import math
-import httplib2
-from os import environ
-from datetime import time, date, datetime, timedelta
-import calendar
+from datetime import date, datetime
 
-from pytz import timezone
-import random
-import string
 import stripe
 
-from flask import Flask, request, render_template
+from flask import Flask, request
 from flask_restful import Resource, Api
 from flask_cors import CORS
 from flask_mail import Mail, Message
@@ -39,29 +29,15 @@ from flask_mail import Mail, Message
 # from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 # from flask_cors import CORS
 
-from werkzeug.exceptions import BadRequest, NotFound
-from werkzeug.security import generate_password_hash, check_password_hash
-
-import googleapiclient.discovery as discovery
-from oauth2client import client
-from oauth2client import tools
-from oauth2client.file import Storage
+from werkzeug.exceptions import BadRequest
 
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
 # from NotificationHub import NotificationHub
 
-import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup
-from twilio.rest import Client
-
-from dateutil.relativedelta import *
 from decimal import Decimal
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 from hashlib import sha512
-from math import ceil
-import string
-import random
 
 # BING API KEY
 # Import Bing API key into bing_api_key.py
@@ -70,13 +46,11 @@ import random
 # from env_keys import BING_API_KEY, RDS_PW
 from dotenv import load_dotenv
 
-import decimal
 import sys
 import json
 import pytz
 import pymysql
 import requests
-import pandas as pd
 from fuzzywuzzy import fuzz
 
 RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
@@ -1287,13 +1261,12 @@ class AvailableAppointments(Resource):
                         -- IF (ISNULL(taadpa.appointment_uid) AND ISNULL(taadpa.prac_avail_uid) AND !ISNULL(days_uid), "Available", "Not Available") AS AVAILABLE
                     FROM(
                         -- GET TIME SLOTS
-                        SELECT ts.*,
-                            ROW_NUMBER() OVER() AS row_num,
-                            TIME(ts.begin_datetime) AS ts_begin,
-                            TIME(ts.end_datetime) AS ts_end,
-                            appt_dur.*,
-                            pa.*,
-                            openhrs.*
+                        SELECT ROW_NUMBER() OVER() AS row_num,
+                            ts.begin_datetime,
+                            ts.end_datetime,
+                            appt_dur.appointment_uid,
+                            pa.prac_avail_uid,
+                            openhrs.days_uid
                         FROM nitya.time_slots ts
                         -- GET CURRENT APPOINTMENTS
                         LEFT JOIN (
@@ -1315,7 +1288,9 @@ class AvailableAppointments(Resource):
                             OR (TIME(ts.begin_datetime) > appt_dur.start_time AND TIME(end_datetime) <= ADDTIME(appt_dur.end_time,"0:29"))
                         -- GET PRACTIONER AVAILABILITY
                         LEFT JOIN (
-                            SELECT *
+                            SELECT prac_avail_uid,
+                                start_time_notavailable,
+                                end_time_notavailable
                             FROM nitya.practioner_availability
                             WHERE date = '"""
                 + date_value
@@ -1324,7 +1299,11 @@ class AvailableAppointments(Resource):
                             OR (TIME(ts.begin_datetime) > pa.start_time_notavailable AND TIME(ts.end_datetime) <= ADDTIME(pa.end_time_notavailable,"0:29"))
                         -- GET OPEN HOURS
                         LEFT JOIN (
-                            SELECT *
+                            SELECT days_uid,
+                                morning_start_time,
+                                morning_end_time,
+                                afternoon_start_time,
+                                afternoon_end_time
                             FROM nitya.days
                             WHERE dayofweek = DAYOFWEEK('"""
                 + date_value
