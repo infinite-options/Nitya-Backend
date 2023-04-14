@@ -89,7 +89,8 @@ stripe.api_key = stripe_secret_test_key
 # stripe.api_key = ""sk_test_51J0UzOLGBFAvIBPFAm7Y5XGQ5APR...WTenXV4Q9ANpztS7Y7ghtwb007quqRPZ3""
 
 
-CORS(app)
+# CORS(app)
+CORS(app, resources={r'/api/*': {'origins': '*'}})
 
 # --------------- Mail Variables ------------------
 # Mail username and password loaded in .env file
