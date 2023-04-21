@@ -29,7 +29,7 @@ from flask_mail import Mail, Message
 # from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 # from flask_cors import CORS
 
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, InternalServerError
 
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
@@ -2124,7 +2124,7 @@ class SendEmail(Resource):
 
 
 # ACCOUNT QUERIES
-class findCustomerUID(Resource):
+class findCustomerUIDv1(Resource):
     def post(self):
         response = {}
         items = {}
@@ -2406,6 +2406,102 @@ class findCustomerUID(Resource):
         finally:
             disconnect(conn)
 
+class findCustomerUIDv2(Resource):
+    def post(self):
+        response = {}
+        try:
+            data = request.get_json()
+            first_name = data["first_name"]
+            last_name = data["last_name"]
+            role = data["role"]
+            phone = data["phone_num"]
+            email = data["email"]
+            is_intro_consult = data["is_intro_consult"]
+            query = (
+                """
+                    SELECT customer_uid,
+                        LCASE(customer_email) = LCASE(\'"""
+                + email
+                + """\') AS email,
+                        customer_phone_num = \'"""
+                + phone
+                + """\' AS phone,
+                        EXISTS(
+                            SELECT 1
+                            FROM nitya.appointments
+                            WHERE appt_treatment_uid = '330-000010'
+                                AND appt_customer_uid = customer_uid
+                        ) AS is_eligible
+                    FROM nitya.customers
+                    WHERE customer_phone_num = \'"""
+                + phone
+                + """\' OR customer_email = \'"""
+                + email
+                + """\' ORDER BY 2 DESC, 3 DESC 
+                    LIMIT 1;
+                """
+            )
+            conn = connect()
+            query_result = execute(query, "get", conn)["result"]
+            if len(query_result)>0:
+                matched_user = query_result[0]
+                response["message"] = "Customer Found"
+                response["code"] = 200
+                response["customer_uid"] = matched_user.pop("customer_uid")
+                if not is_intro_consult and not matched_user.pop("is_eligible"):
+                    fields_matched = [v for v in matched_user.values()]
+                    if all(fields_matched):
+                        response["warning"] = (
+                            "This service is reserved for returning clients. "
+                            "If you have not had an Introductory Consultation, "
+                            "there may be additional charges.")
+                    else:
+                        raise BadRequest
+            else:
+                if not is_intro_consult:
+                    raise BadRequest
+                query = ("CALL nitya.new_customer_uid;")
+                new_uid_response = execute(query[0], "get", conn)
+                new_customer_uid = new_uid_response["result"][0]["new_id"]
+                customer_insert_query = (
+                    """
+                        INSERT INTO nitya.customers
+                        SET customer_uid = \'"""
+                    + new_customer_uid
+                    + """\',
+                            customer_created_at = \'"""
+                    + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
+                    + """\',
+                            customer_first_name = \'"""
+                    + first_name
+                    + """\',
+                            customer_last_name = \'"""
+                    + last_name
+                    + """\',
+                            customer_phone_num = \'"""
+                    + phone
+                    + """\',
+                            customer_email = \'"""
+                    + email
+                    + """\',
+                            role = \'"""
+                    + role
+                    + """\'
+                    """
+                )
+                execute(customer_insert_query, "post", conn)
+                response["customer_uid"] = new_customer_uid
+                response["message"] = "Customer created"
+                response["code"] = 201
+        except BadRequest as e:
+            raise BadRequest("This service is reserved for returning clients. "
+                "If you have had an Introductory Consultation, "
+                "please check your mobile number and email and try again.") from e
+        except Exception as e:
+            raise InternalServerError("An unknown error occurred") from e
+        finally:
+            disconnect(conn)
+        return response
 
 class createAccount(Resource):
     def post(self):
@@ -3717,7 +3813,8 @@ api.add_resource(purchaseDetails, "/api/v2/purchases")
 api.add_resource(SendEmail, "/api/v2/sendEmail")
 api.add_resource(SendEmailPaymentIntent, "/api/v2/SendEmailPaymentIntent")
 api.add_resource(SendEmailCRON_CLASS, "/api/v2/sendEmailCRON_CLASS")
-api.add_resource(findCustomerUID, "/api/v2/findCustomer")
+api.add_resource(findCustomerUIDv1, "/api/v1/findCustomer")
+api.add_resource(findCustomerUIDv2, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
 api.add_resource(AccountSalt, "/api/v2/AccountSalt")
 api.add_resource(Login, "/api/v2/Login")
