@@ -2461,8 +2461,12 @@ class findCustomerUIDv2(Resource):
                 if not is_intro_consult:
                     raise BadRequest
                 query = ("CALL nitya.new_customer_uid;")
-                new_uid_response = execute(query[0], "get", conn)
+                new_uid_response = execute(query, "get", conn)
                 new_customer_uid = new_uid_response["result"][0]["new_id"]
+                name_split = first_name.rsplit(" ", 1)
+                if len(name_split)>1:
+                    first_name = name_split[0]
+                    last_name = name_split[1]
                 customer_insert_query = (
                     """
                         INSERT INTO nitya.customers
