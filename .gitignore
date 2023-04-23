@@ -1,35 +1,38 @@
-# Nitya Ayurveda Git Ignore File
+# Nitya-Backend Git Ignore File
+# Nitya-Backend
 
 # For more about ignoring files:
 # See https://help.github.com/articles/ignoring-files/
 # https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
 
-
-# dependencies
-/node_modules
-/.pnp
-.pnp
-.js
-.vscode
-
-# testing
-/coverage
-
-# production
-/build
+# Backend Specific project files 
+zappa_settings.json
+zappa*
 
 # misc
 .DS_Store
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# . files
+.pem
+.log
+.vscode
+.idea
 
-# Web certificates
-*.pem
+
+# py files
+api_key.py
+env_keys.py
+bing_api_key.py
+node_modules
+yarn.lock
+env
+env_file.py
+venv
+sf_env
+sample.py
+
+# __ files
+__pycache__/
+test.py
+requirement.txt
