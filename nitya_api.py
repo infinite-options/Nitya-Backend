@@ -2416,29 +2416,38 @@ class findCustomerUIDv2(Resource):
             role = data["role"]
             phone = data["phone_num"]
             email = data["email"]
-            is_intro_consult = data["is_intro_consult"]
+            is_ret_client_appt = data["is_ret_client_appt"]
             query = (
                 """
+                WITH matches AS (
                     SELECT customer_uid,
                         LCASE(customer_email) = LCASE(\'"""
                 + email
-                + """\') AS email,
+                + """\') AS email_match,
                         customer_phone_num = \'"""
                 + phone
-                + """\' AS phone,
+                + """\' AS phone_match,
                         EXISTS(
                             SELECT 1
                             FROM nitya.appointments
-                            WHERE appt_treatment_uid = '330-000010'
-                                AND appt_customer_uid = customer_uid
-                        ) AS is_eligible
+                            WHERE appt_treatment_uid = '330-000010' 
+                            AND appt_customer_uid = customer_uid
+                        ) AS is_cust_eligible
                     FROM nitya.customers
                     WHERE customer_phone_num = \'"""
                 + phone
                 + """\' OR customer_email = \'"""
                 + email
-                + """\' ORDER BY 2 DESC, 3 DESC 
-                    LIMIT 1;
+                + """\' ORDER BY 2 DESC, 3 DESC)
+                SELECT customer_uid,
+                    email_match,
+                    phone_match,
+                    CASE
+                        WHEN email_match AND phone_match 
+                        THEN is_cust_eligible
+                        ELSE MAX(is_cust_eligible)
+                    END AS is_eligible
+                FROM matches;
                 """
             )
             conn = connect()
@@ -2448,25 +2457,23 @@ class findCustomerUIDv2(Resource):
                 response["message"] = "Customer Found"
                 response["code"] = 200
                 response["customer_uid"] = matched_user.pop("customer_uid")
-                if not is_intro_consult and not matched_user.pop("is_eligible"):
-                    fields_matched = [v for v in matched_user.values()]
-                    if all(fields_matched):
-                        response["warning"] = (
-                            "This service is reserved for returning clients. "
-                            "If you have not had an Introductory Consultation, "
-                            "there may be additional charges.")
-                    else:
+                response["email_match"] = matched_user["email_match"]
+                response["phone_match"] = matched_user["phone_match"]
+                if is_ret_client_appt:
+                    is_intro_consult_done = matched_user.pop("is_eligible")
+                    if not is_intro_consult_done:
                         raise BadRequest
+                    fields_matched = [v for v in matched_user.values()]
+                    if not all(fields_matched):
+                        response["warning"] = (
+                            "Please Note that if you have not had an Initial "
+                            "Consultation there may be additional charges.")
             else:
-                if not is_intro_consult:
+                if is_ret_client_appt:
                     raise BadRequest
                 query = ("CALL nitya.new_customer_uid;")
                 new_uid_response = execute(query, "get", conn)
                 new_customer_uid = new_uid_response["result"][0]["new_id"]
-                name_split = first_name.rsplit(" ", 1)
-                if len(name_split)>1:
-                    first_name = name_split[0]
-                    last_name = name_split[1]
                 customer_insert_query = (
                     """
                         INSERT INTO nitya.customers
@@ -2498,9 +2505,9 @@ class findCustomerUIDv2(Resource):
                 response["message"] = "Customer created"
                 response["code"] = 201
         except BadRequest as e:
-            raise BadRequest("This service is reserved for returning clients. "
-                "If you have had an Introductory Consultation, "
-                "please check your mobile number and email and try again.") from e
+            raise BadRequest("This appointment is reserved for returning clients. "
+                    "Please book an Initial Consultation or use the email "
+                    "and phone number you used to book your Initial Consultation.") from e
         except Exception as e:
             raise InternalServerError("An unknown error occurred") from e
         finally:
