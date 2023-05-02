@@ -2451,9 +2451,8 @@ class findCustomerUIDv2(Resource):
                 """
             )
             conn = connect()
-            query_result = execute(query, "get", conn)["result"]
-            if len(query_result)>0:
-                matched_user = query_result[0]
+            matched_user = execute(query, "get", conn)["result"][0]
+            if matched_user["customer_uid"]:
                 response["message"] = "Customer Found"
                 response["code"] = 200
                 response["customer_uid"] = matched_user.pop("customer_uid")
@@ -2461,16 +2460,17 @@ class findCustomerUIDv2(Resource):
                 response["phone_match"] = matched_user["phone_match"]
                 if is_ret_client_appt:
                     is_intro_consult_done = matched_user.pop("is_eligible")
-                    if not is_intro_consult_done:
-                        raise BadRequest
                     fields_matched = [v for v in matched_user.values()]
-                    if not all(fields_matched):
+                    if not all(fields_matched) or \
+                            (all(fields_matched) and not is_intro_consult_done):
                         response["warning"] = (
                             "Please Note that if you have not had an Initial "
                             "Consultation there may be additional charges.")
             else:
                 if is_ret_client_appt:
-                    raise BadRequest
+                    raise BadRequest("This appointment is reserved for returning clients. "
+                        "Please book an Initial Consultation or use the email "
+                        "and phone number you used to book your Initial Consultation.")
                 query = ("CALL nitya.new_customer_uid;")
                 new_uid_response = execute(query, "get", conn)
                 new_customer_uid = new_uid_response["result"][0]["new_id"]
@@ -2505,9 +2505,7 @@ class findCustomerUIDv2(Resource):
                 response["message"] = "Customer created"
                 response["code"] = 201
         except BadRequest as e:
-            raise BadRequest("This appointment is reserved for returning clients. "
-                    "Please book an Initial Consultation or use the email "
-                    "and phone number you used to book your Initial Consultation.") from e
+            raise e
         except Exception as e:
             raise InternalServerError("An unknown error occurred") from e
         finally:
