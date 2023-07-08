@@ -1058,7 +1058,7 @@ class AddTreatment(Resource):
             conn = connect()
             data = request.get_json(force=True)
             # print to Received data to Terminal
-            # print("Received:", data)
+            print("Received:", data)
 
             title = data["title"]
             category = data["category"]
@@ -1066,7 +1066,13 @@ class AddTreatment(Resource):
             cost = data["cost"]
             availability = data["availability"]
             duration = data["duration"]
+            treatment_notes = data["treatment_notes"]
+            display_order = data["display_order"]
             image_url = data["image_url"]
+
+            print("treatment_notes:", treatment_notes)
+            print("display_order:", display_order)
+            
 
             query = ["CALL nitya.new_treatment_uid;"]
             NewIDresponse = execute(query[0], "get", conn)
@@ -1097,36 +1103,20 @@ class AddTreatment(Resource):
                         duration = \'"""
                 + duration
                 + """\',
+
+                        treatment_notes = \'"""
+                + treatment_notes
+                + """\',
+                        display_order = \'"""
+                + display_order
+                + """\',
+
+
                         image_url = \'"""
                 + image_url
                 + """\';
                     """
             )
-
-            # query = (
-            #     """
-            #         INSERT INTO treatments
-            #         (   treatment_uid
-            #             , title
-            #             , category
-            #             , description
-            #             , cost
-            #             , availability
-            #             , duration
-            #             , image_url
-            #         )
-            #         VALUES
-            #         (     \'""" + NewID + """\'
-            #             , \'""" + title + """\'
-            #             , \'""" + category + """\'
-            #             , \'""" + description + """\'
-            #             , \'""" + cost + """\'
-            #             , \'""" + availability + """\'
-            #             , \'""" + duration + """\'
-            #             , \'""" + image_url + """\'
-            #         );
-            #     """
-            # )
 
             items = execute(query, "post", conn)
 
@@ -1137,6 +1127,72 @@ class AddTreatment(Resource):
             raise BadRequest("Request failed, please try again later.")
         finally:
             disconnect(conn)
+
+
+# original Add Treatments endpoint
+# class AddTreatment(Resource):
+#     def post(self):
+#         response = {}
+#         items = {}
+#         try:
+#             conn = connect()
+#             data = request.get_json(force=True)
+#             # print to Received data to Terminal
+#             # print("Received:", data)
+
+#             title = data["title"]
+#             category = data["category"]
+#             description = data["description"]
+#             cost = data["cost"]
+#             availability = data["availability"]
+#             duration = data["duration"]
+#             image_url = data["image_url"]
+
+#             query = ["CALL nitya.new_treatment_uid;"]
+#             NewIDresponse = execute(query[0], "get", conn)
+#             NewID = NewIDresponse["result"][0]["new_id"]
+#             print("NewID = ", NewID)
+
+#             query = (
+#                 """
+#                     INSERT INTO nitya.treatments
+#                     SET treatment_uid = \'"""
+#                 + NewID
+#                 + """\',
+#                         title = \'"""
+#                 + title
+#                 + """\',
+#                         category = \'"""
+#                 + category
+#                 + """\',
+#                         description = \'"""
+#                 + description
+#                 + """\',
+#                         cost = \'"""
+#                 + cost
+#                 + """\',
+#                         availability = \'"""
+#                 + availability
+#                 + """\',
+#                         duration = \'"""
+#                 + duration
+#                 + """\',
+#                         image_url = \'"""
+#                 + image_url
+#                 + """\';
+#                     """
+#             )
+
+#             items = execute(query, "post", conn)
+
+#             response["message"] = "Treatments Post successful"
+#             response["result"] = items
+#             return response, 200
+#         except:
+#             raise BadRequest("Request failed, please try again later.")
+#         finally:
+#             disconnect(conn)
+# end original Add Treatments endpoint
 
 
 class AddContact(Resource):
