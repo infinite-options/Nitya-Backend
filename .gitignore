@@ -26,6 +26,7 @@ env_keys.py
 bing_api_key.py
 node_modules
 yarn.lock
+.env
 env
 env_file.py
 venv
