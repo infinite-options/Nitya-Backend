@@ -1187,17 +1187,12 @@ class UpdateTreatment(Resource):
                         image_url = \'"""
                 + image_url
                 + """\'
-                
+
                 WHERE treatment_uid = \'"""
                 + id
                 + """\'
                     """
             )
-
-
-
-
-
 
 
             items = execute(query, "post", conn)
@@ -1213,6 +1208,42 @@ class UpdateTreatment(Resource):
                 "Treatments Request failed, please try again later.")
         finally:
             disconnect(conn)
+
+
+class DeleteTreatment(Resource):
+    def post(self):
+        print("\nInside DELETE Treatment")
+        response = {}
+        items = {}
+
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
+
+            id = data["treatment_uid"]
+
+            query = (
+                """
+                    UPDATE nitya.treatments
+                    SET availability = 'DELETED'
+                    WHERE treatment_uid = \'"""
+                + id
+                + """\';
+                    """
+            )
+
+            delTreatment = execute(query, "post", conn)
+            print("Back in class")
+            print(delTreatment)
+            return delTreatment["code"]
+
+        except:
+            raise BadRequest("Delete Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
 
 
 
@@ -3882,6 +3913,7 @@ api.add_resource(
 api.add_resource(CreateAppointment, "/api/v2/createAppointment")
 api.add_resource(AddTreatment, "/api/v2/addTreatment")
 api.add_resource(UpdateTreatment, "/api/v2/updateTreatment")
+api.add_resource(DeleteTreatment, "/api/v2/deleteTreatment")
 
 api.add_resource(
     GoogleCalenderEvents,
