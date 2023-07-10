@@ -1129,70 +1129,91 @@ class AddTreatment(Resource):
             disconnect(conn)
 
 
-# original Add Treatments endpoint
-# class AddTreatment(Resource):
-#     def post(self):
-#         response = {}
-#         items = {}
-#         try:
-#             conn = connect()
-#             data = request.get_json(force=True)
-#             # print to Received data to Terminal
-#             # print("Received:", data)
+class UpdateTreatment(Resource):
+    def post(self):
+        print("\nInside UPDATE Treatment")
+        response = {}
+        items = {}
 
-#             title = data["title"]
-#             category = data["category"]
-#             description = data["description"]
-#             cost = data["cost"]
-#             availability = data["availability"]
-#             duration = data["duration"]
-#             image_url = data["image_url"]
+        try:
+            conn = connect()
+            data = request.get_json(force=True)
+            # print to Received data to Terminal
+            print("Received:", data)
 
-#             query = ["CALL nitya.new_treatment_uid;"]
-#             NewIDresponse = execute(query[0], "get", conn)
-#             NewID = NewIDresponse["result"][0]["new_id"]
-#             print("NewID = ", NewID)
+            id = data["treatment_uid"]
+            title = data["title"]
+            category = data["category"]
+            description = data["description"]
+            cost = data["cost"]
+            availability = data["availability"]
+            duration = data["duration"]
+            treatment_notes = data["treatment_notes"]
+            display_order = data["display_order"]
+            image_url = data["image_url"]
 
-#             query = (
-#                 """
-#                     INSERT INTO nitya.treatments
-#                     SET treatment_uid = \'"""
-#                 + NewID
-#                 + """\',
-#                         title = \'"""
-#                 + title
-#                 + """\',
-#                         category = \'"""
-#                 + category
-#                 + """\',
-#                         description = \'"""
-#                 + description
-#                 + """\',
-#                         cost = \'"""
-#                 + cost
-#                 + """\',
-#                         availability = \'"""
-#                 + availability
-#                 + """\',
-#                         duration = \'"""
-#                 + duration
-#                 + """\',
-#                         image_url = \'"""
-#                 + image_url
-#                 + """\';
-#                     """
-#             )
+            print("Update ID = ", id)
 
-#             items = execute(query, "post", conn)
+            query = (
+                """
+                    UPDATE nitya.treatments
+                    SET title = \'"""
+                + title
+                + """\',
+                        category = \'"""
+                + category
+                + """\',
+                        description = \'"""
+                + description
+                + """\',
+                        cost = \'"""
+                + cost
+                + """\',
+                        availability = \'"""
+                + availability
+                + """\',
+                        duration = \'"""
+                + duration
+                + """\',
 
-#             response["message"] = "Treatments Post successful"
-#             response["result"] = items
-#             return response, 200
-#         except:
-#             raise BadRequest("Request failed, please try again later.")
-#         finally:
-#             disconnect(conn)
-# end original Add Treatments endpoint
+                        treatment_notes = \'"""
+                + treatment_notes
+                + """\',
+                        display_order = \'"""
+                + display_order
+                + """\',
+
+
+                        image_url = \'"""
+                + image_url
+                + """\'
+                
+                WHERE treatment_uid = \'"""
+                + id
+                + """\'
+                    """
+            )
+
+
+
+
+
+
+
+            items = execute(query, "post", conn)
+            print(items)
+
+            if items["code"] == 281:
+                response["message"] = "Successful"
+                return response, 200
+            else:
+                return items
+        except:
+            raise BadRequest(
+                "Treatments Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
 
 
 class AddContact(Resource):
@@ -3860,6 +3881,7 @@ api.add_resource(
 )
 api.add_resource(CreateAppointment, "/api/v2/createAppointment")
 api.add_resource(AddTreatment, "/api/v2/addTreatment")
+api.add_resource(UpdateTreatment, "/api/v2/updateTreatment")
 
 api.add_resource(
     GoogleCalenderEvents,
