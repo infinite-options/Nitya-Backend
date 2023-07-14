@@ -1058,26 +1058,27 @@ class AddTreatment(Resource):
             conn = connect()
             data = request.get_json(force=True)
             # print to Received data to Terminal
-            print("Received:", data)
+            # print("Received:", data)
 
             title = data["title"]
             category = data["category"]
             description = data["description"]
             cost = data["cost"]
+            addon_cost = data["addon_cost"]
             availability = data["availability"]
             duration = data["duration"]
             treatment_notes = data["treatment_notes"]
             display_order = data["display_order"]
             image_url = data["image_url"]
 
-            print("treatment_notes:", treatment_notes)
-            print("display_order:", display_order)
+            # print("treatment_notes:", treatment_notes)
+            # print("display_order:", display_order)
             
 
             query = ["CALL nitya.new_treatment_uid;"]
             NewIDresponse = execute(query[0], "get", conn)
             NewID = NewIDresponse["result"][0]["new_id"]
-            print("NewID = ", NewID)
+            # print("NewID = ", NewID)
 
             query = (
                 """
@@ -1096,6 +1097,9 @@ class AddTreatment(Resource):
                 + """\',
                         cost = \'"""
                 + cost
+                + """\',
+                        addon_cost = \'"""
+                + addon_cost
                 + """\',
                         availability = \'"""
                 + availability
@@ -1120,8 +1124,8 @@ class AddTreatment(Resource):
 
             items = execute(query, "post", conn)
 
-            response["message"] = "Treatments Post successful"
-            response["result"] = items
+            response["message"] = "Add Treatment successful"
+            response["result"] = NewID
             return response, 200
         except:
             raise BadRequest("Request failed, please try again later.")
@@ -1139,20 +1143,21 @@ class UpdateTreatment(Resource):
             conn = connect()
             data = request.get_json(force=True)
             # print to Received data to Terminal
-            print("Received:", data)
+            # print("Received:", data)
 
             id = data["treatment_uid"]
             title = data["title"]
             category = data["category"]
             description = data["description"]
             cost = data["cost"]
+            addon_cost = data["addon_cost"]
             availability = data["availability"]
             duration = data["duration"]
             treatment_notes = data["treatment_notes"]
             display_order = data["display_order"]
             image_url = data["image_url"]
 
-            print("Update ID = ", id)
+            # print("Update ID = ", id)
 
             query = (
                 """
@@ -1168,6 +1173,9 @@ class UpdateTreatment(Resource):
                 + """\',
                         cost = \'"""
                 + cost
+                + """\',
+                        addon_cost = \'"""
+                + addon_cost
                 + """\',
                         availability = \'"""
                 + availability
@@ -1196,10 +1204,10 @@ class UpdateTreatment(Resource):
 
 
             items = execute(query, "post", conn)
-            print(items)
+            # print(items)
 
             if items["code"] == 281:
-                response["message"] = "Successful"
+                response["message"] = "Update Treatment Successful"
                 return response, 200
             else:
                 return items
@@ -1220,7 +1228,7 @@ class DeleteTreatment(Resource):
             conn = connect()
             data = request.get_json(force=True)
             # print to Received data to Terminal
-            print("Received:", data)
+            # print("Received:", data)
 
             id = data["treatment_uid"]
 
@@ -1235,9 +1243,10 @@ class DeleteTreatment(Resource):
             )
 
             delTreatment = execute(query, "post", conn)
-            print("Back in class")
-            print(delTreatment)
-            return delTreatment["code"]
+            # print("Back in class")
+            # print(delTreatment)
+            response["message"] = "Treatment Availability changed to Not Available"
+            return (response, delTreatment["code"])
 
         except:
             raise BadRequest("Delete Request failed, please try again later.")
