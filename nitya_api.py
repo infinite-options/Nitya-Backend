@@ -383,7 +383,7 @@ class treatments(Resource):
             # QUERY 2
             query = """
                 SELECT * FROM  nitya.treatments
-                WHERE availability = "Available"
+                WHERE availability = "Available" OR availability = "Not Available"
                 ORDER BY category, display_order;
                 """
             # The query is executed here
@@ -2128,7 +2128,7 @@ class SendEmail(Resource):
             if mode == 'Online':
                 location = 'Online - We will send you a Zoom link via email, 5 minutes before the appointment begins'
             else:
-                location = '6055 Meridian Ave. Suite 40 A, San Jose, CA 95120.'
+                location = '1610 Blossom Hill Rd. Suite 1, San Jose, CA 95124.'
             # Send email to Client
             msg = Message(
                 "Thanks for your Email!",
