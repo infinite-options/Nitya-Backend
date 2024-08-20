@@ -783,6 +783,48 @@ class UploadVideo(Resource):
         except FileNotFoundError:
             print("The file was not found")
             return False
+        
+class UploadDocument(Resource):
+    def post(self):
+        print("In Upload Document")
+        try:
+            item_document = request.files.get("file-0")
+            print("Item Document: ", item_document)
+            bucket = "nitya-images"
+            uid = request.form.get("filename")
+            TimeStamp_test = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            print("Datetime: ", TimeStamp_test)
+            key = "waivers/" + str(uid) + "_" + TimeStamp_test
+            print(key)
+
+            filename = (
+                "https://s3-us-west-1.amazonaws.com/" +
+                str(bucket) + "/" + str(key)
+            )
+            print("Filename: ", filename)
+
+            # Determine the content type based on the file extension
+            content_type = item_document.content_type
+
+            print("Bucket: ", bucket)
+            print("Body: ", item_document)
+            print("Key: ", key)
+            print("ACL: ", "public-read")
+            print("ContentType: ", content_type)
+
+            upload_file = s3.put_object(
+                Bucket=bucket,
+                Body=item_document,
+                Key=key,
+                ACL="public-read",
+                ContentType=content_type,
+            )
+            print("Upload details: ", upload_file)
+            print("Upload Successful")
+            return filename
+        except FileNotFoundError:
+            print("The file was not found")
+            return False
 
 
 class FullBlog(Resource):
@@ -3910,6 +3952,9 @@ api.add_resource(UploadImage, "/api/v2/uploadImage")
 
 api.add_resource(UploadVideo, "/api/v2/uploadVideo")
 api.add_resource(DeleteBlog, "/api/v2/deleteBlog/<string:blog_id>")
+
+api.add_resource(UploadDocument, "/api/v2/uploadDocument")
+# api.add_resource(DeleteDocument, "/api/v2/deleteDocument/<string:document_id>")
 
 api.add_resource(
     GetUserEmailId, '/api/v2/GetUserEmailId/<string:customer_email>')
