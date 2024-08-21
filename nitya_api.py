@@ -84,7 +84,7 @@ stripe_secret_live_key = os.getenv("stripe_secret_live_key")
 app.config['MAIL_USERNAME'] = os.getenv('SUPPORT_EMAIL')
 app.config['MAIL_PASSWORD'] = os.getenv('SUPPORT_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
-print("Sender: ", app.config['MAIL_DEFAULT_SENDER'])
+# print("Sender: ", app.config['MAIL_DEFAULT_SENDER'])
 
 
 # Setting for mydomain.com
@@ -139,7 +139,7 @@ s3 = boto3.client("s3")
 # BUCKET_NAME = os.environ.get('nitya-images')
 # BUCKET_NAME = "nitya-images"
 BUCKET_NAME =os.getenv('BUCKET_NAME')
-print("Bucket Name: ", BUCKET_NAME)
+# print("Bucket Name: ", BUCKET_NAME)
 # allowed extensions for uploading a profile photo file
 ALLOWED_EXTENSIONS = set(["png", "jpg", "jpeg"])
 
