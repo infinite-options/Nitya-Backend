@@ -1,74 +1,61 @@
 # To run program:  python3 nitya_api.py
 
 # README:  if conn error make sure password is set properly in RDS PASSWORD section
-
 # README:  Debug Mode may need to be set to False when deploying live (although it seems to be working through Zappa)
-
 # README:  if there are errors, make sure you have all requirements are loaded
-# pip3 install flask
-# pip3 install flask_restful
-# pip3 install flask_cors
-# pip3 install Werkzeug
-# pip3 install pymysql
-# pip3 install python-dateutil
 
-from dotenv import load_dotenv
+
 import os
 import boto3
 import json
-from datetime import date, datetime
-
+import sys
+import json
+import pytz
+import pymysql
+import requests
 import stripe
+# from fuzzywuzzy import fuzz
 
+from dotenv import load_dotenv
+from datetime import date, datetime
 from flask import Flask, request
 from flask_restful import Resource, Api
 from flask_cors import CORS
 from flask_mail import Mail, Message
-
-# used for serializer email and error handling
-# from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
-# from flask_cors import CORS
-
 from werkzeug.exceptions import BadRequest, InternalServerError
+from decimal import Decimal
+from datetime import datetime, date
+from hashlib import sha512
 
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
 # from NotificationHub import NotificationHub
-
-from decimal import Decimal
-from datetime import datetime, date
-from hashlib import sha512
 
 # BING API KEY
 # Import Bing API key into bing_api_key.py
 
 #  NEED TO SOLVE THIS
 # from env_keys import BING_API_KEY, RDS_PW
-from dotenv import load_dotenv
 
-import sys
-import json
-import pytz
-import pymysql
-import requests
-from fuzzywuzzy import fuzz
 
-RDS_HOST = "io-mysqldb8.cxjnrciilyjq.us-west-1.rds.amazonaws.com"
-RDS_PORT = 3306
-RDS_USER = "admin"
-RDS_DB = "nitya"
+# app = Flask(__name__)
+app = Flask(__name__, template_folder="assets")
+api = Api(app)
+# load_dotenv()
 
+# CORS(app)
+CORS(app, resources={r'/api/*': {'origins': '*'}})
+
+
+# --------------- Google Scopes and Credentials------------------
 SCOPES = "https://www.googleapis.com/auth/calendar"
 CLIENT_SECRET_FILE = "credentials.json"
 APPLICATION_NAME = "nitya-ayurveda"
-# app = Flask(__name__)
-app = Flask(__name__, template_folder="assets")
 
-load_dotenv()
+
 
 # --------------- Stripe Variables ------------------
 # these key are using for testing. Customer should use their stripe account's keys instead
-
 
 # STRIPE AND PAYPAL KEYS
 paypal_secret_test_key = os.getenv("paypal_secret_key_test")
@@ -83,20 +70,21 @@ stripe_secret_test_key = os.getenv("stripe_secret_test_key")
 stripe_public_live_key = os.getenv("stripe_public_live_key")
 stripe_secret_live_key = os.getenv("stripe_secret_live_key")
 
-stripe.api_key = stripe_secret_test_key
+
+# app.config["STRIPE_SECRET_KEY"] = os.getenv("STRIPE_SECRET_KEY")
 
 # use below for local testing
+# stripe.api_key = stripe_secret_test_key
 # stripe.api_key = ""sk_test_51J0UzOLGBFAvIBPFAm7Y5XGQ5APR...WTenXV4Q9ANpztS7Y7ghtwb007quqRPZ3""
 
 
-# CORS(app)
-CORS(app, resources={r'/api/*': {'origins': '*'}})
 
 # --------------- Mail Variables ------------------
 # Mail username and password loaded in .env file
 app.config['MAIL_USERNAME'] = os.getenv('SUPPORT_EMAIL')
 app.config['MAIL_PASSWORD'] = os.getenv('SUPPORT_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+print("Sender: ", app.config['MAIL_DEFAULT_SENDER'])
 
 
 # Setting for mydomain.com
@@ -107,7 +95,6 @@ app.config["MAIL_PORT"] = 465
 # app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 # app.config['MAIL_PORT'] = 465
 
-
 app.config["MAIL_USE_TLS"] = False
 app.config["MAIL_USE_SSL"] = True
 
@@ -116,13 +103,12 @@ app.config["MAIL_USE_SSL"] = True
 app.config["DEBUG"] = True
 # app.config["DEBUG"] = False
 
-app.config["STRIPE_SECRET_KEY"] = os.getenv("STRIPE_SECRET_KEY")
-
+# MAIL  -- This statement has to be below the Mail Variables
 mail = Mail(app)
 
-# API
-api = Api(app)
 
+
+# --------------- Time Variables ------------------
 # convert to UTC time zone when testing in local time zone
 utc = pytz.utc
 
@@ -131,11 +117,8 @@ utc = pytz.utc
 # def getNow(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d %H:%M:%S")
 
 # # These statment return Day and Time in Local Time - Not sure about PST vs PDT
-
-
 def getToday():
     return datetime.strftime(datetime.now(), "%Y-%m-%d")
-
 
 def getNow():
     return datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
@@ -148,25 +131,15 @@ def getNow():
 # print(getNow)
 
 
-# Get RDS password from command line argument
-def RdsPw():
-    if len(sys.argv) == 2:
-        return str(sys.argv[1])
-    return ""
 
-
-# RDS PASSWORD
-# When deploying to Zappa, set RDS_PW equal to the password as a string
-# When pushing to GitHub, set RDS_PW equal to RdsPw()
-RDS_PW = "prashant"
-# RDS_PW = RdsPw()
-
-
+# --------------- S3 BUCKET CONFIGUATION ------------------
 s3 = boto3.client("s3")
 
 # aws s3 bucket where the image is stored
 # BUCKET_NAME = os.environ.get('nitya-images')
-BUCKET_NAME = "nitya-images"
+# BUCKET_NAME = "nitya-images"
+BUCKET_NAME =os.getenv('BUCKET_NAME')
+print("Bucket Name: ", BUCKET_NAME)
 # allowed extensions for uploading a profile photo file
 ALLOWED_EXTENSIONS = set(["png", "jpg", "jpeg"])
 
@@ -179,9 +152,10 @@ NOTIFICATION_HUB_NAME = os.getenv("NOTIFICATION_HUB_NAME")
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
+
+
+# --------------- DATABASE CONFIGUATION ------------------
 # Connect to MySQL database (API v2)
-
-
 def connect():
     global RDS_PW
     global RDS_HOST
@@ -192,11 +166,11 @@ def connect():
     print("Trying to connect to RDS (API v2)...")
     try:
         conn = pymysql.connect(
-            host=RDS_HOST,
-            user=RDS_USER,
-            port=RDS_PORT,
-            passwd=RDS_PW,
-            db=RDS_DB,
+            host=os.getenv('RDS_HOST'),
+            user=os.getenv('RDS_USER'),
+            port=int(os.getenv('RDS_PORT')),
+            passwd=os.getenv('RDS_PW'),
+            db=os.getenv('RDS_DB'),
             cursorclass=pymysql.cursors.DictCursor,
         )
         print("Successfully connected to RDS. (API v2)")
@@ -214,6 +188,7 @@ def disconnect(conn):
     except:
         print("Could not properly disconnect from MySQL database. (API v2)")
         raise Exception("Failure disconnecting from MySQL database. (API v2)")
+
 
 
 # Serialize JSON
@@ -288,6 +263,9 @@ def runSelectQuery(query, cur):
         return queriedData
     except:
         raise Exception("Could not run select query and/or return data")
+
+
+
 
 
 # -- Stored Procedures start here -------------------------------------------------------------------------------
@@ -1618,72 +1596,6 @@ class Calendar(Resource):
 
             return available_times["result"]
 
-            # d = datetime.strptime('0:29:59', '%H:%M:%S' )
-            # print(d, type(d))
-            # times = []
-
-            # # Two things to take into account:
-            # # 1.  The duration calculation
-            # #     Duration is met if end time - start time >= duration
-            # # 2.  The contiguous relationships between times
-            # #     Times are contiguous if end time = next start time
-
-            # n = 0
-            # m = n
-            # time_zero = datetime.strptime('00:00:00', '%H:%M:%S')
-            # print(time_zero, type(time_zero))
-            # while n < len(available_times['result']):
-            #     # s = datetime.strptime(available_times['result'][n]["appt_start"], '%H:%M:%S' ).time()
-            #     # e = datetime.strptime(available_times['result'][n]["appt_end"], '%H:%M:%S' ).time()
-            #     # print(s)
-            #     # print(e)
-            #     # DURATION TEST
-            #     while m < len(available_times['result']):
-            #         print(n)
-            #         print(m)
-            #         s = datetime.strptime(available_times['result'][n]["appt_start"], '%H:%M:%S' )
-            #         e = datetime.strptime(available_times['result'][m]["appt_end"], '%H:%M:%S' )
-            #         print(s, type(s))
-            #         print(e, type(e))
-            #         print((s - time_zero).time())
-            #         # print((s - time_zero + d).time())
-            #         # if (s -time_zero + d).time() <= e:
-            #         #     times.append(s).time()
-            #         #     continue
-            #     m = m + 1
-            # n = n + 1
-            # print(times)
-
-            # for appt in available_times['result']:
-            #     s = datetime.strptime(appt['appt_start'], '%H:%M:%S' ).time()
-            #     e = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
-            #     if s + d <= e:
-            #         times.append(appt['appt_start'])
-
-            # print(times)
-
-            # n = 0
-            # while n < len(available_times['result']):
-
-            #
-
-            # d = datetime.strptime('0:30:00', '%H:%M:%S' ).time()
-            # print(d, type(d))
-            # # duration = datetime(0:60:00)
-            # for appt in available_times['result']:
-            #     print(appt)
-            #     print(appt['appt_start'], type(appt['appt_start']))
-            #     print(appt['appt_end'], type(appt['appt_end']))
-            #     # x = appt['appt_end'] - appt['appt_start']
-            #     # print(x, type(x))
-            #     s = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
-            #     e = datetime.strptime(appt['appt_end'], '%H:%M:%S' ).time()
-
-            #     print(s, type(s))
-
-            # print(datetime.strptime(appt['appt_end']))
-            #  - datetime.strptime(appt['appt_start']))
-
         except:
             raise BadRequest(
                 "Available Time Request failed, please try again later.")
@@ -1751,15 +1663,7 @@ class UpdateAccessToken(Resource):
                 conn,
             )
 
-            # query = """UPDATE ta_people
-            #            SET
-            #            ta_google_auth_token = \'""" + ta_google_auth_token + """\'
-            #            WHERE ta_unique_id = \'""" + ta_id + """\';"""
-
-            # items =
-            # print(items)
             response["message"] = "successful"
-            # response['ta_google_auth_token'] = items['result'][0]['ta_google_auth_token']
 
             return response, 200
         except:
@@ -1970,18 +1874,6 @@ class SendEmailCRON_CLASS(Resource):
         print("In Send EMail get")
         try:
             conn = connect()
-
-            # # Send email to Client
-            # msg = Message(
-            #     subject="Daily Email Check!",
-            #     sender="support@nityaayurveda.com",
-            #     recipients=["anu.sandhu7893@gmail.com"],
-            # )
-            # msg.body = (
-            #     "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
-            # )
-            # print(msg.body)
-            # mail.send(msg)
             recipient = ["anu.sandhu7893@gmail.com"]
             subject = "Daily Email Check!"
             body = (
@@ -2261,8 +2153,9 @@ class SendEmail(Resource):
             msg = Message(
                 "Thanks for your Email!",
                 sender="support@nityaayurveda.com",
-                recipients=[email, "Lmarathay@gmail.com",
-                            "pmarathay@gmail.com"],
+                recipients=[email],
+                # recipients=[email, "Lmarathay@gmail.com",
+                #             "pmarathay@gmail.com"],
             )
 
             msg.body = (
@@ -2271,8 +2164,8 @@ class SendEmail(Resource):
                 "Email support@nityaayurveda.com if you need to get in touch with us directly.\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            # print('msg-bd----', msg.body)
-            # print('msg-')
+            print('msg-bd----', msg.body)
+            print('msg-', msg)
             mail.send(msg)
             return "Email Sent", 200
 
@@ -2331,54 +2224,7 @@ class findCustomerUIDv1(Resource):
                                 email, cust['customer_email']))
                             thresholdEmail.append(cust)
 
-                        # else:
-                        #     query = ["CALL nitya.new_customer_uid;"]
-                        #     NewIDresponse = execute(query[0], "get", conn)
-                        #     NewcustomerID = NewIDresponse["result"][0]["new_id"]
-                        #     print('first name', first_name.split(' '))
-                        #     if len(first_name.split(' ')) > 1:
-                        #         fName = first_name.split(' ')[0]
-                        #         lName = first_name.split(' ')[1]
-                        #     customer_insert_query = (
-                        #         """
-                        #             INSERT INTO nitya.customers
-                        #             SET customer_uid = \'"""
-                        #         + NewcustomerID
-                        #         + """\',
-                        #                 customer_created_at = \'"""
-                        #         + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
-                        #         + """\',
-                        #                 customer_first_name = \'"""
-                        #         + fName
-                        #         + """\',
-                        #                 customer_last_name = \'"""
-                        #         + lName
-                        #         + """\',
-                        #                 customer_phone_num = \'"""
-                        #         + phone
-                        #         + """\',
-                        #                 customer_email = \'"""
-                        #         + email
-                        #         + """\',
-                        #                 role = \'"""
-                        #         + role
-                        #         + """\'
-                        #             """
-                        #     )
 
-                        #     customer_items = execute(
-                        #         customer_insert_query, "post", conn)
-                        #     print("NewcustomerID=", NewcustomerID)
-                        #     # items["message"] = "Email and Phone Number do not exist"
-                        #     # items["code"] = 404
-                        #     items["result"] = [{
-                        #         "customer_uid": NewcustomerID,
-                        #         "customer_phone_num": phone,
-                        #         "customer_email": email
-                        #     }]
-                        #     items["message"] = "New Customer Created"
-                        #     items["code"] = 200
-                        #     return items
                     else:
                         print('AFTER ELSE PHONE CHECK', phone, cust['customer_phone_num'], fuzz.partial_ratio(
                             phone, cust['customer_phone_num']))
@@ -2390,54 +2236,7 @@ class findCustomerUIDv1(Resource):
                                 email, cust['customer_email']))
 
                             thresholdEmail.append(cust)
-                        # else:
-                        #     query = ["CALL nitya.new_customer_uid;"]
-                        #     NewIDresponse = execute(query[0], "get", conn)
-                        #     NewcustomerID = NewIDresponse["result"][0]["new_id"]
-                        #     print('first name', first_name.split(' '))
-                        #     if len(first_name.split(' ')) > 1:
-                        #         fName = first_name.split(' ')[0]
-                        #         lName = first_name.split(' ')[1]
-                        #     customer_insert_query = (
-                        #         """
-                        #             INSERT INTO nitya.customers
-                        #             SET customer_uid = \'"""
-                        #         + NewcustomerID
-                        #         + """\',
-                        #                 customer_created_at = \'"""
-                        #         + (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
-                        #         + """\',
-                        #                 customer_first_name = \'"""
-                        #         + fName
-                        #         + """\',
-                        #                 customer_last_name = \'"""
-                        #         + lName
-                        #         + """\',
-                        #                 customer_phone_num = \'"""
-                        #         + phone
-                        #         + """\',
-                        #                 customer_email = \'"""
-                        #         + email
-                        #         + """\',
-                        #                 role = \'"""
-                        #         + role
-                        #         + """\'
-                        #             """
-                        #     )
 
-                        #     customer_items = execute(
-                        #         customer_insert_query, "post", conn)
-                        #     print("NewcustomerID=", NewcustomerID)
-                        #     # items["message"] = "Email and Phone Number do not exist"
-                        #     # items["code"] = 404
-                        #     items["result"] = [{
-                        #         "customer_uid": NewcustomerID,
-                        #         "customer_phone_num": phone,
-                        #         "customer_email": email
-                        #     }]
-                        #     items["message"] = "New Customer Created"
-                        #     items["code"] = 200
-                        #     return items
 
             else:
                 query = ["CALL nitya.new_customer_uid;"]
