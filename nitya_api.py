@@ -100,9 +100,10 @@ app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
 print("Support Email from ENV: ", os.getenv('SUPPORT_EMAIL'))
 
 
-
+print("s3_bucket: ", os.getenv('s3_bucket'))
 print("RDS_HOST: ", os.getenv('RDS_HOST'))
 print("RDS_PORT: ", os.getenv('RDS_PORT'))
+print("BUCKET_NAME: ", os.getenv('BUCKET_NAME'))
 
 
 # Setting for mydomain.com
