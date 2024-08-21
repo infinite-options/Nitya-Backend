@@ -164,6 +164,8 @@ def connect():
     global RDS_DB
 
     print("Trying to connect to RDS (API v2)...")
+    print(os.getenv('RDS_HOST'), os.getenv('RDS_USER'), os.getenv('RDS_PORT'), type(os.getenv('RDS_PORT')), os.getenv('RDS_PW'), os.getenv('RDS_DB'))
+    
     try:
         conn = pymysql.connect(
             host=os.getenv('RDS_HOST'),
