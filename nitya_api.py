@@ -166,9 +166,15 @@ def connect():
     print("Trying to connect to RDS (API v2)...")
     print("RDS_HOST: ", os.getenv('RDS_HOST'))
     print("RDS_USER: ", os.getenv('RDS_USER'))
-    print("RDS_PORT: ", os.getenv('RDS_PORT'))
+    print("RDS_PORT: ", os.getenv('RDS_PORT'), type(os.getenv('RDS_PORT')))
     print("RDS_PW: ", os.getenv('RDS_PW'))
     print("RDS_DB: ", os.getenv('RDS_DB'))
+
+    # print("RDS_HOST1: ", os.getenv('RDS_HOST1'))
+    # print("RDS_USER1: ", os.getenv('RDS_USER1'))
+    # print("RDS_PORT1: ", os.getenv('RDS_PORT1'))
+    # print("RDS_PW1: ", os.getenv('RDS_PW1'))
+    # print("RDS_DB1: ", os.getenv('RDS_DB1'))
 
     # print(os.getenv('RDS_HOST'), os.getenv('RDS_USER'), os.getenv('RDS_PORT'), type(os.getenv('RDS_PORT')), os.getenv('RDS_PW'), os.getenv('RDS_DB'))
     
@@ -179,7 +185,7 @@ def connect():
         conn = pymysql.connect(
             host=os.getenv('RDS_HOST'),
             user=os.getenv('RDS_USER'),
-            port=os.getenv('RDS_PORT'),
+            port=int(os.getenv('RDS_PORT')),
             passwd=os.getenv('RDS_PW'),
             db=os.getenv('RDS_DB'),
             cursorclass=pymysql.cursors.DictCursor,
