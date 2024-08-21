@@ -97,6 +97,12 @@ CORS(app, resources={r'/api/*': {'origins': '*'}})
 app.config['MAIL_USERNAME'] = os.getenv('SUPPORT_EMAIL')
 app.config['MAIL_PASSWORD'] = os.getenv('SUPPORT_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+print("Support Email from ENV: ", os.getenv('SUPPORT_EMAIL'))
+
+
+
+print("RDS_HOST: ", os.getenv('RDS_HOST'))
+print("RDS_PORT: ", os.getenv('RDS_PORT'))
 
 
 # Setting for mydomain.com
