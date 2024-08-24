@@ -40,13 +40,15 @@ from hashlib import sha512
 
 
 # app = Flask(__name__)
-app = Flask(__name__, template_folder="assets")
+app = Flask(__name__)
 api = Api(app)
 # load_dotenv()
 
-# CORS(app)
-CORS(app, resources={r'/api/*': {'origins': '*'}})
+CORS(app)
+# CORS(app, resources={r'/api/*': {'origins': '*'}})
 
+# Set this to false when deploying to live application
+app.config['DEBUG'] = True
 
 # --------------- Google Scopes and Credentials------------------
 SCOPES = "https://www.googleapis.com/auth/calendar"
@@ -773,7 +775,17 @@ class UploadVideo(Resource):
 class UploadDocument(Resource):
     def post(self):
         print("In Upload Document")
+        response = {}
         try:
+            data = request.form
+            print("Received:", data)
+            #  GET CUSTOMER APPOINTMENT INFO
+            first_name = data.get("first_name", "Prashant")
+            last_name = data.get("last_name", "Marathay")
+            email = data.get("email", "pmarathay@yahoo.com")
+            phone_no = data.get("phone_no", "4084760001")
+            print(first_name, last_name, email, phone_no)
+
             item_document = request.files.get("file-0")
             print("Item Document: ", item_document)
             bucket = "nitya-images"
@@ -806,8 +818,42 @@ class UploadDocument(Resource):
                 ContentType=content_type,
             )
             print("Upload details: ", upload_file)
-            print("Upload Successful")
-            return filename
+            print(upload_file['ResponseMetadata'])
+            print(upload_file['ResponseMetadata']['HTTPStatusCode'])
+            if upload_file['ResponseMetadata']['HTTPStatusCode'] == 200:
+                print("Upload Successful")
+                response["filename"] = filename
+                response["link"] = filename
+
+                print('os.environ.get("SUPPORT_EMAIL")', os.environ.get("SUPPORT_EMAIL"))
+                print('response', response)
+                # SendEmail.get(self, name, age, gender,
+                #           mode, str(notes), email, phone_no, message)
+                
+                msg = Message(
+                "Here is the waiver",
+                sender="support@nityaayurveda.com",
+                # recipients=[email],
+                recipients=[email,
+                            "pmarathay@gmail.com"],
+                )
+                # client email
+                # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+                msg.body = (
+                    str(filename)
+                )
+                mail.send(msg)
+
+
+                response["message"] = "email sent"
+
+
+
+            else:
+                response["error"] = "file not uploaded"
+
+
+            return response
         except FileNotFoundError:
             print("The file was not found")
             return False
@@ -2181,6 +2227,7 @@ class SendEmail(Resource):
             raise BadRequest("Request failed mail, please try again later.")
         finally:
             disconnect(conn)
+
 
 
 # ACCOUNT QUERIES
