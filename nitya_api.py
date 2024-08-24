@@ -780,8 +780,8 @@ class UploadDocument(Resource):
             data = request.form
             print("Received:", data)
             #  GET CUSTOMER APPOINTMENT INFO
-            first_name = data.get("first_name", "Prashant")
-            last_name = data.get("last_name", "Marathay")
+            first_name = data.get("first_name", "Dear")
+            last_name = data.get("last_name", "Customer")
             email = data.get("email", "pmarathay@yahoo.com")
             phone_no = data.get("phone_no", "4084760001")
             print(first_name, last_name, email, phone_no)
@@ -791,7 +791,7 @@ class UploadDocument(Resource):
             bucket = "nitya-images"
             uid = request.form.get("filename")
             TimeStamp_test = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            print("Datetime: ", TimeStamp_test)
+            # print("Datetime: ", TimeStamp_test)
             key = "waivers/" + str(uid) + "_" + TimeStamp_test
             print(key)
 
@@ -817,33 +817,40 @@ class UploadDocument(Resource):
                 ACL="public-read",
                 ContentType=content_type,
             )
-            print("Upload details: ", upload_file)
-            print(upload_file['ResponseMetadata'])
-            print(upload_file['ResponseMetadata']['HTTPStatusCode'])
+            # print("Upload details: ", upload_file)
+            # print(upload_file['ResponseMetadata'])
+            # print(upload_file['ResponseMetadata']['HTTPStatusCode'])
             if upload_file['ResponseMetadata']['HTTPStatusCode'] == 200:
-                print("Upload Successful")
+                # print("Upload Successful")
                 response["filename"] = filename
                 response["link"] = filename
 
-                print('os.environ.get("SUPPORT_EMAIL")', os.environ.get("SUPPORT_EMAIL"))
-                print('response', response)
-                # SendEmail.get(self, name, age, gender,
-                #           mode, str(notes), email, phone_no, message)
+                # print('os.environ.get("SUPPORT_EMAIL")', os.environ.get("SUPPORT_EMAIL"))
+                # print('response', response)
                 
                 msg = Message(
                 "Here is the waiver",
                 sender="support@nityaayurveda.com",
                 # recipients=[email],
                 recipients=[email,
+                            "lmarathay@gmail.com",
                             "pmarathay@gmail.com"],
                 )
-                # client email
-                # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
+
+                name = first_name + " " + last_name
+
                 msg.body = (
+                    "Hello " + str(name) + "\n"
+                    "\n"
+                    "Here is the waiver form you filled out and submitted.  Click on the link below to see the form.\n"
+                    "\n"
+                    "Regards," + "\n"
+                    "Leena Marathay" + "\n"
+                    "\n" +
                     str(filename)
                 )
-                mail.send(msg)
 
+                mail.send(msg)
 
                 response["message"] = "email sent"
 
@@ -1950,8 +1957,8 @@ def SendEmailCRON():
         conn = connect()
         print('here after connect')
 
-        recipient = ["Lmarathay@yahoo.com",
-                     "pmarathay@gmail.com", "anu.sandhu7893@gmail.com"]
+        recipient = ["Lmarathay@gmail.com",
+                     "pmarathay@gmail.com"]
         print(recipient)
         subject = "Daily Email Check!"
         print(subject)
@@ -2040,7 +2047,7 @@ class SendEmailNewGet(Resource):
             msg = Message(
                 "New Email from Website!",
                 sender="support@nityaayurveda.com",
-                recipients=["Lmarathay@yahoo.com", "pmarathay@gmail.com"],
+                recipients=["Lmarathay@gmail.com", "pmarathay@gmail.com"],
             )
             msg.body = (
                 "Hi !\n\n"
@@ -2159,7 +2166,7 @@ class SendEmail(Resource):
                 "New appointment booked!",
                 sender="support@nityaayurveda.com",
                 # recipients=[email],
-                recipients=["Lmarathay@yahoo.com",
+                recipients=["Lmarathay@gmail.com",
                             "pmarathay@gmail.com"],
             )
             # practitioner email
