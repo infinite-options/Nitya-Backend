@@ -1867,9 +1867,9 @@ def sendEmail2(recipient, subject, body):
             subject=subject,
             body=body
         )
-        print(msg)
+        # print(msg)
         mail.send(msg)
-        print('after mail send')
+        # print('after mail send')
 
 
 app.sendEmail2 = sendEmail2
@@ -1879,50 +1879,56 @@ class SendEmailCRON_CLASS(Resource):
 
     def get(self):
         print("In Send EMail get")
+        from flask_mail import Mail, Message
         try:
             conn = connect()
-            recipient = ["anu.sandhu7893@gmail.com"]
+            # print('here after connect')
+
+            recipient = ["Lmarathay@gmail.com", "pmarathay@gmail.com"]
+            # print(recipient)
             subject = "Daily Email Check!"
+            # print(subject)
             body = (
-                "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong")
-            # mail.send(msg)
+                "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+            )
+            # print(body)
             sendEmail2(recipient, subject, body)
+
+            # print('here after mail send')
 
             return "Email Sent", 200
 
         except:
-            raise BadRequest("Request failed, please try again later.")
+            raise BadRequest("Email didnt send something is wrong.")
         finally:
             disconnect(conn)
 
 
 def SendEmailCRON():
-    print("In Send EMail get")
-    from flask_mail import Mail, Message
-    try:
-        conn = connect()
-        print('here after connect')
+        print("In Send EMail get")
+        from flask_mail import Mail, Message
+        try:
+            conn = connect()
+            # print('here after connect')
 
-        recipient = ["Lmarathay@yahoo.com",
-                     "pmarathay@gmail.com", "anu.sandhu7893@gmail.com"]
-        print(recipient)
-        subject = "Daily Email Check!"
-        print(subject)
-        body = (
-            "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
-        )
-        print(body)
-        # mail.send(msg)
-        sendEmail2(recipient, subject, body)
+            recipient = ["Lmarathay@gmail.com", "pmarathay@gmail.com"]
+            # print(recipient)
+            subject = "Daily Email Check!"
+            # print(subject)
+            body = (
+                "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong"
+            )
+            # print(body)
+            sendEmail2(recipient, subject, body)
 
-        print('here after mail send')
+            # print('here after mail send')
 
-        return "Email Sent", 200
+            return "Email Sent", 200
 
-    except:
-        raise BadRequest("Email didnt send something is wrong.")
-    finally:
-        disconnect(conn)
+        except:
+            raise BadRequest("Email didnt send something is wrong.")
+        finally:
+            disconnect(conn)
 
 # SEND EMAIL
 
@@ -1993,7 +1999,7 @@ class SendEmailNewGet(Resource):
             msg = Message(
                 "New Email from Website!",
                 sender="support@nityaayurveda.com",
-                recipients=["Lmarathay@yahoo.com", "pmarathay@gmail.com"],
+                recipients=["Lmarathay@gmail.com", "pmarathay@gmail.com"],
             )
             msg.body = (
                 "Hi !\n\n"
@@ -2112,7 +2118,7 @@ class SendEmail(Resource):
                 "New appointment booked!",
                 sender="support@nityaayurveda.com",
                 # recipients=[email],
-                recipients=["Lmarathay@yahoo.com",
+                recipients=["Lmarathay@gmail.com",
                             "pmarathay@gmail.com"],
             )
             # practitioner email
