@@ -1447,7 +1447,7 @@ class AvailableAppointments(Resource):
             # CALCULATE AVAILABLE TIME SLOTS
             query = (
                 """
-                    -- AVAILABLE TIME SLOTS QUERY - WORKS
+                -- AVAILABLE TIME SLOTS QUERY - WORKS
                     WITH ats AS (
                     -- CALCULATE AVAILABLE TIME SLOTS
                     SELECT -- *,
@@ -1480,9 +1480,9 @@ class AvailableAppointments(Resource):
                             FROM nitya.appointments
                             LEFT JOIN nitya.treatments
                             ON appt_treatment_uid = treatment_uid
-                            WHERE appt_date = '"""
-                + date_value
-                + """') AS appt_dur
+                            -- WHERE appt_date = '2024-12-03'
+                            WHERE appt_date = '""" + date_value + """'
+                            ) AS appt_dur
                         ON TIME(ts.begin_datetime) = appt_dur.start_time
                             OR (TIME(ts.begin_datetime) > appt_dur.start_time AND TIME(end_datetime) <= ADDTIME(appt_dur.end_time,"0:29"))
                         -- GET PRACTIONER AVAILABILITY
@@ -1491,9 +1491,9 @@ class AvailableAppointments(Resource):
                                 start_time_notavailable,
                                 end_time_notavailable
                             FROM nitya.practioner_availability
-                            WHERE date = '"""
-                + date_value
-                + """') AS pa
+                            -- WHERE date = '2024-12-03'
+                            WHERE date = '""" + date_value + """'
+                            ) AS pa
                         ON TIME(ts.begin_datetime) = pa.start_time_notavailable
                             OR (TIME(ts.begin_datetime) > pa.start_time_notavailable AND TIME(ts.end_datetime) <= ADDTIME(pa.end_time_notavailable,"0:29"))
                         -- GET OPEN HOURS
@@ -1504,11 +1504,8 @@ class AvailableAppointments(Resource):
                                 afternoon_start_time,
                                 afternoon_end_time
                             FROM nitya.days
-                            WHERE dayofweek = DAYOFWEEK('"""
-                + date_value
-                + """') AND hoursMode = '"""
-                + mode
-                + """') AS openhrs
+                            -- WHERE dayofweek = DAYOFWEEK('2024-12-03') AND hoursMode = 'Office') AS openhrs
+                            WHERE dayofweek = DAYOFWEEK('""" + date_value + """') AND hoursMode = '""" + mode + """' ) AS openhrs
                         ON TIME(ts.begin_datetime) = openhrs.morning_start_time
                             OR (TIME(ts.begin_datetime) > openhrs.morning_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.morning_end_time,"0:29"))
                             OR TIME(ts.begin_datetime) = openhrs.afternoon_start_time
@@ -1525,41 +1522,58 @@ class AvailableAppointments(Resource):
                             row_num,
                             DATE_FORMAT(begin_time, '%T') AS "begin_time",
                             CASE
-                                WHEN ISNULL(row_num_hr) THEN "0:29:59"
-                                WHEN ISNULL(row_num_hrhalf) THEN "0:59:59"
-                                WHEN ISNULL(row_num_twohr) THEN "1:29:59"
-                                ELSE "1:59:59"
+                                WHEN ISNULL(row_num_half) THEN "0:29:59"
+                                WHEN ISNULL(row_num_hr) THEN "0:59:59"
+                                WHEN ISNULL(row_num_hrhalf) THEN "1:29:59"
+                                WHEN ISNULL(row_num_twohr) THEN "1:59:59"
+                                WHEN ISNULL(row_num_twohalf) THEN "2:29:59"
+                                ELSE "2:59:59"
                             END AS available_duration
                         FROM (
                             SELECT *
                             FROM ats
                             LEFT JOIN (
                                 SELECT
+                                    row_num as row_num_half,
+                                    begin_time AS begin_time_half,
+                                    end_time AS end_time_half
+                                FROM ats) AS ats5
+                            ON ats.row_num + 1 = ats5.row_num_half
+                            LEFT JOIN (
+                                SELECT
                                     row_num as row_num_hr,
                                     begin_time AS begin_time_hr,
                                     end_time AS end_time_hr
                                 FROM ats) AS ats1
-                            ON ats.row_num + 1 = ats1.row_num_hr
+                            ON ats.row_num + 2 = ats1.row_num_hr
                             LEFT JOIN (
                                 SELECT
                                     row_num as row_num_hrhalf,
                                     begin_time AS begin_time_hrhalf,
                                     end_time AS end_time_hrhalf
                                 FROM ats) AS ats2
-                            ON ats.row_num + 2 = ats2.row_num_hrhalf
+                            ON ats.row_num + 3 = ats2.row_num_hrhalf
                             LEFT JOIN (
                                 SELECT
                                     row_num as row_num_twohr,
                                     begin_time AS begin_time_twohr,
                                     end_time AS end_time_twohr
                                 FROM ats) AS ats3
-                            ON ats.row_num + 3 = ats3.row_num_twohr) AS atss) AS atsss
-                    WHERE '"""
-                + duration
-                + """' <= available_duration;
-                    """
-            )
+                            ON ats.row_num + 4 = ats3.row_num_twohr
+                            LEFT JOIN (
+                                SELECT
+                                    row_num as row_num_twohalf,
+                                    begin_time AS begin_time_twohalf,
+                                    end_time AS end_time_twohalf
+                                FROM ats) AS ats4
+                            ON ats.row_num + 5 = ats4.row_num_twohalf
 
+                            ) AS atss) AS atsss
+                    -- WHERE '2:29:59' <= available_duration;
+                    WHERE '""" + duration + """' <= available_duration;
+                """
+            )
+            # print(query)
             available_times = execute(query, "get", conn)
             print("Available Times: ", str(available_times["result"]))
             print("Number of time slots: ", len(available_times["result"]))
@@ -3877,4 +3891,4 @@ api.add_resource(NewEndpoint, "/api/v2/newEndpoint")
 # Run on below IP address and port
 # Make sure port number is unused (i.e. don't use numbers 0-1023)
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=4000)
+    app.run(host="127.0.0.1", port=4050)
