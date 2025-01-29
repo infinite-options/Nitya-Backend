@@ -4,7 +4,7 @@
 # README:  Debug Mode may need to be set to False when deploying live (although it seems to be working through Zappa)
 # README:  if there are errors, make sure you have all requirements are loaded
 
-print("In Nitya")
+
 
 import os
 import boto3
@@ -27,6 +27,9 @@ from werkzeug.exceptions import BadRequest, InternalServerError
 from decimal import Decimal
 from datetime import datetime, date
 from hashlib import sha512
+
+# print("In Nitya")
+print(f"-------------------- New Program Run ( {os.getenv('RDS_DB')} ) --------------------")
 
 #  NEED TO SOLVE THIS
 # from NotificationHub import Notification
@@ -953,6 +956,7 @@ class DeleteBlog(Resource):
 
 class CreateAppointment(Resource):
     def post(self):
+        print("In CreateAppointment POST")
         response = {}
         items = {}
         cus_id = {}
@@ -1946,7 +1950,7 @@ app.sendEmail2 = sendEmail2
 class SendEmailCRON_CLASS(Resource):
 
     def get(self):
-        print("In Send EMail get")
+        print("In Send EMail CRON")
         try:
             conn = connect()
             recipient = ["anu.sandhu7893@gmail.com"]
@@ -1965,7 +1969,7 @@ class SendEmailCRON_CLASS(Resource):
 
 
 def SendEmailCRON():
-    print("In Send EMail get")
+    print("In Send EMail CRON")
     from flask_mail import Mail, Message
     try:
         conn = connect()
@@ -2114,26 +2118,44 @@ class SendEmail(Resource):
 
     def get(self, name, age, gender, mode, notes, email, phone, subject):
         print("In Send EMail get")
+        # print(name, age, gender, mode, notes, email, phone, subject)
         response = {}
         try:
             conn = connect()
             subject = subject.split(',')
+            # print(subject)
+            # print(subject[2])
+            # print(subject[2][5:7])
 
             month_num = subject[2][5:7]
+            # print(month_num)
             datetime_object1 = datetime.strptime(month_num, "%m")
             month_name = datetime_object1.strftime("%B")
+            # print(month_name)
 
-            datetime_object2 = datetime.strptime(subject[2], "%Y-%m-%d")
+            day_num = subject[2][8:10]
+            # print(day_num)
+            datetime_object2 = datetime.strptime(day_num, "%d")
+            # print(datetime_object2)
             day = datetime_object2.strftime("%A")
-
+            # print(day)
+            
+            # print(subject[3])
+            # time_num = subject[2][0:4]
+            # print(time_num)
             datetime_object3 = datetime.strptime(subject[3], "%H:%M")
             time = datetime_object3.strftime("%I:%M %p")
+            # print(time)
             phone = phone[0:3] + "-" + phone[3:6] + "-" + phone[6:]
+            # print(phone)
 
             age = age
             gender = gender
             mode = mode
             notes = notes
+
+            # print("Email Info: ", age, gender, time)
+
             if mode == 'Online':
                 location = 'Online - We will send you a Zoom link via email, 5 minutes before the appointment begins'
             else:
@@ -2174,6 +2196,7 @@ class SendEmail(Resource):
                 "Thank you - Nitya Ayurveda\n\n"
             )
             mail.send(msg)
+            # print("First email sent")
 
             # Send email to Practitioner
             msg2 = Message(
@@ -2209,6 +2232,7 @@ class SendEmail(Resource):
                 "Notes: " + str(notes) + "\n"
             )
             mail.send(msg2)
+            # print("Second email sent")
 
             return "Email Sent", 200
 
@@ -2218,7 +2242,7 @@ class SendEmail(Resource):
             disconnect(conn)
 
     def post(self):
-
+        print("In Send EMail post")
         try:
             conn = connect()
 
