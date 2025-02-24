@@ -2117,7 +2117,7 @@ class SendEmail(Resource):
         print("In SendEmail")
 
     def get(self, name, age, gender, mode, notes, email, phone, subject):
-        print("In Send EMail get")
+        # print("\nIn Send EMail get")
         # print(name, age, gender, mode, notes, email, phone, subject)
         response = {}
         try:
@@ -2135,7 +2135,8 @@ class SendEmail(Resource):
 
             day_num = subject[2][8:10]
             # print(day_num)
-            datetime_object2 = datetime.strptime(day_num, "%d")
+            # datetime_object2 = datetime.strptime(day_num, "%d")
+            datetime_object2 = datetime.strptime(subject[2], "%Y-%m-%d")
             # print(datetime_object2)
             day = datetime_object2.strftime("%A")
             # print(day)
