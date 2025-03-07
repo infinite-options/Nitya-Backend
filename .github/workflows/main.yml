@@ -25,7 +25,8 @@ jobs:
       - name: Install Dependencies
         run: |
           cd Nitya-Backend
-          pip3 install -r requirements.txt
+          pip install --upgrade pip setuptools wheel Cython
+          pip3 install -r requirements.txt --no-deps
 
       - name: Run app to test
         id: test
