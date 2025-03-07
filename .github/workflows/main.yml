@@ -26,7 +26,8 @@ jobs:
         run: |
           cd Nitya-Backend
           pip install --upgrade pip setuptools wheel Cython
-          pip3 install -r requirements.txt --no-deps
+          pip install PyYAML==6.0.1
+          pip3 install -r requirements.txt --no-deps --ignore-installed
 
       - name: Run app to test
         id: test
