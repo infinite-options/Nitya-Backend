@@ -16,18 +16,21 @@ jobs:
           cd Nitya-Backend
           ls
 
-      - name: Set Up Python
-        run: |
-          sudo apt update
-          sudo apt install -y python3 python3-pip python3-venv build-essential
-          python3 --version
+      - name: Set Up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
 
       - name: Install Dependencies
         run: |
           cd Nitya-Backend
-          pip install --upgrade pip setuptools wheel Cython
-          pip install PyYAML==6.0.1
-          pip3 install -r requirements.txt --no-deps --ignore-installed
+          python -m pip install --upgrade pip setuptools wheel Cython
+          # Install problematic packages first with binary preference
+          pip install PyYAML==6.0.1 --only-binary=PyYAML
+          pip install python-Levenshtein --only-binary=python-Levenshtein 
+          pip install Levenshtein --only-binary=Levenshtein
+          # Install remaining dependencies
+          pip install -r requirements.txt --no-deps
 
       - name: Run app to test
         id: test
