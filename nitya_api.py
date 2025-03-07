@@ -380,7 +380,7 @@ class treatments(Resource):
             # The query is executed here
             items = execute(query, "get", conn)
             # The return message and result from query execution
-            response["message"] = "successful"
+            response["message"] = "successful ec2"
             response["result"] = items["result"]
             # Returns code and response
             return response, 200
