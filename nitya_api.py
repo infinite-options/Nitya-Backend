@@ -1953,7 +1953,7 @@ class SendEmailCRON_CLASS(Resource):
         print("In Send EMail CRON")
         try:
             conn = connect()
-            recipient = ["anu.sandhu7893@gmail.com"]
+            recipient = ["pmarathay@gmail.com"]
             subject = "Daily Email Check!"
             body = (
                 "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong")
@@ -2022,7 +2022,7 @@ class SendEmailPaymentIntent(Resource):
             msg = Message(
                 "Payment Intent Error",
                 sender="support@nityaayurveda.com",
-                recipients=["pmarathay@gmail.com", "anu.sandhu7893@gmail.com"],
+                recipients=["pmarathay@gmail.com"],
             )
             msg.body = (
                 "Hi !\n\n"
