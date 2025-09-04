@@ -18,7 +18,7 @@ import stripe
 # from fuzzywuzzy import fuzz
 
 from dotenv import load_dotenv
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, time
 from flask import Flask, request
 from flask_restful import Resource, Api
 from flask_cors import CORS
@@ -214,6 +214,10 @@ def serializeResponse(response):
                     row[key] = float(row[key])
                 elif type(row[key]) is date or type(row[key]) is datetime:
                     row[key] = row[key].strftime("%Y-%m-%d")
+                elif type(row[key]) is timedelta:
+                    row[key] = str(row[key])
+                elif type(row[key]) is time:
+                    row[key] = str(row[key])
         # print("In Serialize JSON response", response)
         return response
     except:
@@ -1449,136 +1453,93 @@ class AvailableAppointments(Resource):
             print("Inside try block", date_value, duration)
 
             # CALCULATE AVAILABLE TIME SLOTS
-            query = (
-                """
-                -- AVAILABLE TIME SLOTS QUERY - WORKS
+            query = """
+                -- AVAILABLE TIME SLOTS QUERY WITH DYNAMIC MINIMUM DURATION CHECK
+                -- Dynamic inputs:
+                -- SET @date_value = '2025-09-04';
+                -- SET @duration_str = '1:29:59';
+
                 WITH ats AS (
-                -- CALCULATE AVAILABLE TIME SLOTS
-                SELECT -- *,
-                    -- ROW_NUMBER() OVER() AS row_num,
-                    row_num,
-                    cast(begin_datetime as time) AS begin_time,
-                    cast(end_datetime as time) AS end_time,
-                    hoursMode
-                    -- *,
-                    -- TIMEDIFF(stop_time,begin_time),
-                    -- IF (ISNULL(taadpa.appointment_uid) AND ISNULL(taadpa.prac_avail_uid) AND !ISNULL(days_uid), "Available", "Not Available") AS AVAILABLE
-                FROM(
-                    -- GET TIME SLOTS
-                    SELECT ROW_NUMBER() OVER() AS row_num,
-                        ts.begin_datetime,
-                        ts.end_datetime,
-                        appt_dur.appointment_uid,
-                        pa.prac_avail_uid,
-                        openhrs.days_uid,
-                        hoursMode
+                    SELECT
+                        ROW_NUMBER() OVER() AS row_num,
+                        CAST(ts.begin_datetime AS TIME) AS begin_time,
+                        CAST(ts.end_datetime AS TIME) AS end_time,
+                        d.hoursMode,
+                        d.morning_start_time,
+                        d.morning_end_time,
+                        d.afternoon_start_time,
+                        d.afternoon_end_time,
+                        -- earliest blocking time: next appointment or closing
+                        LEAST(
+                            IFNULL(MIN(
+                                ADDTIME(
+                                    STR_TO_DATE(a.appt_time, '%H:%i:%s'),  -- Convert appointment time to TIME
+                                    STR_TO_DATE(t.duration, '%H:%i:%s')    -- Treatments duration stored as string
+                                )
+                            ), '23:59:59'),
+                            IF(TIME(ts.begin_datetime) BETWEEN d.morning_start_time AND d.morning_end_time, d.morning_end_time,
+                            IF(TIME(ts.begin_datetime) BETWEEN d.afternoon_start_time AND d.afternoon_end_time, d.afternoon_end_time, '23:59:59'))
+                        ) AS next_blocker
                     FROM nitya.time_slots ts
-                    -- GET CURRENT APPOINTMENTS
-                    LEFT JOIN (
-                        SELECT -- *,
-                            appointment_uid,
-                            appt_date,
-                            appt_time AS start_time,
-                            duration,
-                            ADDTIME(appt_time, duration) AS end_time,
-                            cast(concat(appt_date, ' ', appt_time) as datetime) as start,
-                            cast(concat(appt_date, ' ', ADDTIME(appt_time, duration)) as datetime) as end
-                        FROM nitya.appointments
-                        LEFT JOIN nitya.treatments
-                        ON appt_treatment_uid = treatment_uid
-                        -- WHERE appt_date = '2029-09-04'
-                        WHERE appt_date = '""" + date_value + """'
-                        ) AS appt_dur
-                    ON TIME(ts.begin_datetime) = appt_dur.start_time
-                        OR (TIME(ts.begin_datetime) > appt_dur.start_time AND TIME(end_datetime) <= ADDTIME(appt_dur.end_time,"0:29"))
-                    -- GET PRACTIONER AVAILABILITY
-                    LEFT JOIN (
-                        SELECT prac_avail_uid,
-                            start_time_notavailable,
-                            end_time_notavailable
-                        FROM nitya.practioner_availability
-                        -- WHERE date = '2029-09-04'
-                        WHERE date = '""" + date_value + """'
-                        ) AS pa
-                    ON TIME(ts.begin_datetime) = pa.start_time_notavailable
-                        OR (TIME(ts.begin_datetime) > pa.start_time_notavailable AND TIME(ts.end_datetime) <= ADDTIME(pa.end_time_notavailable,"0:29"))
-                    -- GET OPEN HOURS
-                    LEFT JOIN (
-                        SELECT *
-                        FROM nitya.days
-                        -- WHERE dayofweek = DAYOFWEEK('2025-09-04')) AS openhrs
-                        WHERE dayofweek = DAYOFWEEK('""" + date_value + """')) AS openhrs
-                    ON TIME(ts.begin_datetime) = openhrs.morning_start_time
-                        OR (TIME(ts.begin_datetime) > openhrs.morning_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.morning_end_time,"0:29"))
-                        OR TIME(ts.begin_datetime) = openhrs.afternoon_start_time
-                        OR (TIME(ts.begin_datetime) > openhrs.afternoon_start_time AND TIME(ts.end_datetime) <= ADDTIME(openhrs.afternoon_end_time,"0:29"))
-                    )AS taadpa
-                WHERE ISNULL(taadpa.appointment_uid)
-                    AND ISNULL(taadpa.prac_avail_uid)
-                    AND !ISNULL(days_uid)
+                    JOIN nitya.days d
+                    -- Dynamic date:
+                    ON d.dayofweek = DAYOFWEEK('{date_value}')
+                    -- ON d.dayofweek = DAYOFWEEK(@date_value)
+                    -- Hard-coded for comparison:
+                    -- ON d.dayofweek = DAYOFWEEK('2025-09-04')
+                    LEFT JOIN nitya.appointments a
+                    -- Dynamic date:
+                    ON a.appt_date = '{date_value}'
+                    -- ON a.appt_date = @date_value
+                    -- Hard-coded for comparison:
+                    -- ON a.appt_date = '2025-09-04'
+                    AND TIME(STR_TO_DATE(a.appt_time, '%H:%i:%s')) > TIME(ts.begin_datetime)
+                    LEFT JOIN nitya.treatments t
+                    ON a.appt_treatment_uid = t.treatment_uid
+                    LEFT JOIN nitya.practioner_availability pa
+                    -- Dynamic date:
+                    ON pa.date = '{date_value}'
+                    -- ON pa.date = @date_value
+                    -- Hard-coded for comparison:
+                    -- ON pa.date = '2025-09-04'
+                    AND TIME(ts.begin_datetime) < pa.end_time_notavailable
+                    AND TIME(ts.end_datetime) > pa.start_time_notavailable
+                    WHERE pa.prac_avail_uid IS NULL
+                    AND (
+                            (TIME(ts.begin_datetime) >= d.morning_start_time AND TIME(ts.end_datetime) <= d.morning_end_time)
+                        OR (TIME(ts.begin_datetime) >= d.afternoon_start_time AND TIME(ts.end_datetime) <= d.afternoon_end_time)
+                    )
+                    GROUP BY ts.begin_datetime, ts.end_datetime, d.hoursMode,
+                            d.morning_start_time, d.morning_end_time,
+                            d.afternoon_start_time, d.afternoon_end_time
                 )
 
                 SELECT *
                 FROM (
-                    SELECT -- *,
-                        row_num,
-                        DATE_FORMAT(begin_time, '%T') AS "begin_time",
-                        CASE
-                            WHEN ISNULL(row_num_half) THEN "0:29:59"
-                            WHEN ISNULL(row_num_hr) THEN "0:59:59"
-                            WHEN ISNULL(row_num_hrhalf) THEN "1:29:59"
-                            WHEN ISNULL(row_num_twohr) THEN "1:59:59"
-                            WHEN ISNULL(row_num_twohalf) THEN "2:29:59"
-                            ELSE "2:59:59"
-                        END AS available_duration,
-                        hoursMode
-                    FROM (
-                        SELECT *
-                        FROM ats
-                        LEFT JOIN (
-                            SELECT
-                                row_num as row_num_half,
-                                begin_time AS begin_time_half,
-                                end_time AS end_time_half
-                            FROM ats) AS ats5
-                        ON ats.row_num + 1 = ats5.row_num_half
-                        LEFT JOIN (
-                            SELECT
-                                row_num as row_num_hr,
-                                begin_time AS begin_time_hr,
-                                end_time AS end_time_hr
-                            FROM ats) AS ats1
-                        ON ats.row_num + 2 = ats1.row_num_hr
-                        LEFT JOIN (
-                            SELECT
-                                row_num as row_num_hrhalf,
-                                begin_time AS begin_time_hrhalf,
-                                end_time AS end_time_hrhalf
-                            FROM ats) AS ats2
-                        ON ats.row_num + 3 = ats2.row_num_hrhalf
-                        LEFT JOIN (
-                            SELECT
-                                row_num as row_num_twohr,
-                                begin_time AS begin_time_twohr,
-                                end_time AS end_time_twohr
-                            FROM ats) AS ats3
-                        ON ats.row_num + 4 = ats3.row_num_twohr
-                        LEFT JOIN (
-                            SELECT
-                                row_num as row_num_twohalf,
-                                begin_time AS begin_time_twohalf,
-                                end_time AS end_time_twohalf
-                            FROM ats) AS ats4
-                        ON ats.row_num + 5 = ats4.row_num_twohalf
-
-                        ) AS atss) AS atsss
-                -- WHERE '1:29:59' <= available_duration
-                WHERE '""" + duration + """' <= available_duration
+                    SELECT
+                        ats.row_num,
+                        DATE_FORMAT(ats.begin_time, '%T') AS begin_time,
+                        ats.hoursMode,
+                        SEC_TO_TIME(
+                            LEAST(
+                                TIME_TO_SEC(TIMEDIFF(ats.next_blocker, ats.begin_time)),
+                                2*60*60 + 59*60 + 59
+                            )
+                        ) AS available_duration
+                    FROM ats
+                ) AS final
+                -- Dynamic duration filter:
+                WHERE TIME_TO_SEC(available_duration) >= TIME_TO_SEC(STR_TO_DATE('{duration}', '%H:%i:%s'))
+                -- WHERE TIME_TO_SEC(available_duration) >= TIME_TO_SEC(STR_TO_DATE(@duration_str, '%H:%i:%s'))
+                -- Hard-coded for comparison:
+                -- WHERE TIME_TO_SEC(available_duration) >= TIME_TO_SEC('1:29:59')
                 ORDER BY hoursMode, begin_time;
-                """
-            )
+                """.format(date_value=date_value, duration=duration)
+
+
             # print(query)
             available_times = execute(query, "get", conn)
+            print(available_times)
             print("Available Times: ", str(available_times["result"]))
             print("Number of time slots: ", len(available_times["result"]))
             # print("Available Times: ", str(available_times['result'][0]["appt_start"]))
