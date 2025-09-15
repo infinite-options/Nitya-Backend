@@ -1789,9 +1789,9 @@ class UpdateAccessToken(Resource):
             disconnect(conn)
 
 
-class GoogleCalenderEvents(Resource):
+class GooglecalendarEvents(Resource):
     def post(self, customer_uid, start, end):
-        print("In Google Calender Events")
+        print("In Google calendar Events")
         try:
             conn = connect()
             # data = request.get_json(force=True)
@@ -1816,6 +1816,7 @@ class GoogleCalenderEvents(Resource):
                 items["result"][0]["access_expires_in"] == None
                 or items["result"][0]["social_timestamp"] == None
             ):
+                print("in if")
                 f = open(
                     "credentials.json",
                 )
@@ -1964,6 +1965,217 @@ class GoogleCalenderEvents(Resource):
 
         except:
             raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+
+def convert_to_pacific_time(freebusy_data):
+    """
+    Convert UTC times in Google FreeBusy response to Pacific Time
+    """
+    import pytz
+    from datetime import datetime
+    
+    try:
+        # Create timezone objects
+        utc = pytz.UTC
+        pacific = pytz.timezone('US/Pacific')
+        
+        # Convert the main timeMin and timeMax
+        if 'timeMin' in freebusy_data:
+            utc_time = datetime.fromisoformat(freebusy_data['timeMin'].replace('Z', '+00:00'))
+            pacific_time = utc_time.astimezone(pacific)
+            freebusy_data['timeMin'] = pacific_time.isoformat()
+            
+        if 'timeMax' in freebusy_data:
+            utc_time = datetime.fromisoformat(freebusy_data['timeMax'].replace('Z', '+00:00'))
+            pacific_time = utc_time.astimezone(pacific)
+            freebusy_data['timeMax'] = pacific_time.isoformat()
+        
+        # Convert busy times in each calendar
+        if 'calendars' in freebusy_data:
+            for calendar_id, calendar_data in freebusy_data['calendars'].items():
+                if 'busy' in calendar_data:
+                    for busy_period in calendar_data['busy']:
+                        # Convert start time
+                        if 'start' in busy_period:
+                            utc_time = datetime.fromisoformat(busy_period['start'].replace('Z', '+00:00'))
+                            pacific_time = utc_time.astimezone(pacific)
+                            busy_period['start'] = pacific_time.isoformat()
+                        
+                        # Convert end time
+                        if 'end' in busy_period:
+                            utc_time = datetime.fromisoformat(busy_period['end'].replace('Z', '+00:00'))
+                            pacific_time = utc_time.astimezone(pacific)
+                            busy_period['end'] = pacific_time.isoformat()
+        
+        return freebusy_data
+        
+    except Exception as e:
+        print(f"Error converting to Pacific Time: {e}")
+        # Return original data if conversion fails
+        return freebusy_data
+
+
+class GoogleFreeBusy(Resource):
+    def post(self, customer_uid, start, end):
+        print("In Google FreeBusy")
+        try:
+            conn = connect()
+            print(customer_uid, start, end)
+            timestamp = getNow()
+            
+            # Convert start and end parameters to proper date format for Google Calendar API
+            from datetime import datetime, timedelta
+            
+            # Handle different input formats
+            try:
+                # Try to parse as full dates first (YYYY-MM-DD format)
+                if len(start) == 10 and len(end) == 10 and start.count('-') == 2 and end.count('-') == 2:
+                    # Full date format: 2025-09-14
+                    start_date = start + 'T00:00:00Z'
+                    end_date = end + 'T23:59:59Z'
+                elif start.isdigit() and end.isdigit():
+                    # Day numbers: 9, 12 - convert to current month
+                    current_date = datetime.now()
+                    start_day = int(start)
+                    end_day = int(end)
+                    start_date = current_date.replace(day=start_day).strftime('%Y-%m-%dT00:00:00Z')
+                    end_date = current_date.replace(day=end_day).strftime('%Y-%m-%dT23:59:59Z')
+                else:
+                    # Assume they're already in the correct format
+                    start_date = start
+                    end_date = end
+                    
+                print(f"FreeBusy date range: {start_date} to {end_date}")
+            except Exception as e:
+                print(f"Error parsing dates: {e}")
+                return {"error": f"Invalid date format. Expected YYYY-MM-DD or day numbers, got: {start}, {end}"}
+
+            # Get user tokens
+            items = execute(
+                """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+                + customer_uid
+                + """\'""",
+                "get",
+                conn,
+            )
+
+            if len(items["result"]) == 0:
+                return "No such user exists"
+            print("items", items)
+            
+            # Check if tokens need refreshing
+            needs_refresh = (
+                items["result"][0]["access_expires_in"] == None
+                or items["result"][0]["social_timestamp"] == None
+                or items["result"][0]["user_refresh_token"] == None
+            )
+            
+            if not needs_refresh:
+                # Check if existing tokens are still valid
+                access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
+                social_timestamp = datetime.strptime(
+                    items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
+                )
+                current_timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                diff = (current_timestamp - social_timestamp).total_seconds() / 60
+                
+                if int(diff) > int(access_issue_min):
+                    needs_refresh = True
+            
+            if needs_refresh:
+                print("Refreshing tokens for FreeBusy...")
+                try:
+                    if items["result"][0]["user_refresh_token"] is None:
+                        return {"error": "No refresh token available. User needs to re-authenticate with Google."}
+                    
+                    f = open("credentials.json")
+                    data = json.load(f)
+                    client_id = data["web"]["client_id"]
+                    client_secret = data["web"]["client_secret"]
+                    
+                    params = {
+                        "grant_type": "refresh_token",
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": items["result"][0]["user_refresh_token"],
+                    }
+                    
+                    authorization_url = "https://accounts.google.com/o/oauth2/token"
+                    r = requests.post(authorization_url, data=params)
+                    
+                    if r.ok:
+                        auth_token = r.json()["access_token"]
+                        expires_in = r.json()["expires_in"]
+                        
+                        execute(
+                            """UPDATE customers SET
+                                        user_access_token = \'"""
+                            + str(auth_token)
+                            + """\'
+                                        , social_timestamp = \'"""
+                            + str(timestamp)
+                            + """\'
+                                        , access_expires_in = \'"""
+                            + str(expires_in)
+                            + """\'
+                                        WHERE customer_uid = \'"""
+                            + customer_uid
+                            + """\';""",
+                            "post",
+                            conn,
+                        )
+                        
+                        # Get updated tokens
+                        items = execute(
+                            """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+                            + customer_uid
+                            + """\'""",
+                            "get",
+                            conn,
+                        )
+                    else:
+                        return {"error": "Failed to refresh Google tokens"}
+                except Exception as e:
+                    return {"error": f"Error refreshing tokens: {str(e)}"}
+            
+            # Use tokens to fetch FreeBusy information
+            print("Fetching FreeBusy information...")
+            url = "https://www.googleapis.com/calendar/v3/freeBusy"
+            
+            headers = {
+                "Authorization": f"Bearer {items['result'][0]['user_access_token']}",
+                "Content-Type": "application/json"
+            }
+            
+            body = {
+                "timeMin": start_date,
+                "timeMax": end_date,
+                "items": [{"id": "primary"}]  # or use customer_email for specific calendar
+            }
+            
+            print(f"Making FreeBusy request to: {url}")
+            print(f"Request body: {body}")
+            
+            response = requests.post(url, headers=headers, data=json.dumps(body))
+            print(f"Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                freebusy_data = response.json()
+                print(f"FreeBusy response (UTC): {freebusy_data}")
+                
+                # Convert UTC times to Pacific Time
+                pacific_data = convert_to_pacific_time(freebusy_data)
+                print(f"FreeBusy response (Pacific): {pacific_data}")
+                return pacific_data
+            else:
+                print(f"Error response: {response.text}")
+                return {"error": f"Google FreeBusy API error: {response.status_code}"}
+
+        except Exception as e:
+            print(f"Error in GoogleFreeBusy: {str(e)}")
+            return {"error": f"Request failed: {str(e)}"}
         finally:
             disconnect(conn)
 
@@ -3908,8 +4120,12 @@ api.add_resource(UpdateTreatment, "/api/v2/updateTreatment")
 api.add_resource(DeleteTreatment, "/api/v2/deleteTreatment")
 
 api.add_resource(
-    GoogleCalenderEvents,
-    "/api/v2/calenderEvents/<string:customer_uid>,<string:start>,<string:end>",
+    GooglecalendarEvents,
+    "/api/v2/calendarEvents/<string:customer_uid>,<string:start>,<string:end>",
+)
+api.add_resource(
+    GoogleFreeBusy,
+    "/api/v2/freeBusy/<string:customer_uid>,<string:start>,<string:end>",
 )
 api.add_resource(UpdateAccessToken,
                  "/api/v2/UpdateAccessToken/<string:customer_uid>")

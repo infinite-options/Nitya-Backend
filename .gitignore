@@ -9,6 +9,7 @@
 # Backend Specific project files 
 zappa_settings.json
 zappa*
+credentials.json
 
 # misc
 .DS_Store
