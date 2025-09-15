@@ -1209,7 +1209,7 @@ class CreateAppointment(Resource):
             except Exception as e:
                 print(f"Error creating Google Calendar event: {e}")
                 response["calendar_error"] = f"Appointment created but calendar event failed: {str(e)}"
-            
+
             return response, 200
         except BadRequest as e:
             # Re-raise BadRequest exceptions to preserve custom error messages
@@ -1565,7 +1565,7 @@ class AvailableAppointments(Resource):
             except ValueError as e:
                 print(f"ERROR: Invalid date format: {e}")
                 return {
-                    "message": "No available time slots found for the selected date.",
+                    "message": "Invalid date format.",
                     "code": 280,
                     "result": [],
                     "no_availability": True,
@@ -1574,6 +1574,43 @@ class AvailableAppointments(Resource):
                     "requested_duration": duration_str,
                     "sql": f"Invalid date format: {str(e)}"
                 }
+
+            # CHECK FOR EXISTING THERAPY/PACKAGE APPOINTMENTS
+            # If requesting Therapy or Package, check if one already exists on this date
+            # print(f"DEBUG: appointment_type = '{appointment_type}'")
+            # print(f"DEBUG: appointment_type.lower() = '{appointment_type.lower() if appointment_type else None}'")
+            # print(f"DEBUG: checking if in ['therapy', 'package']: {appointment_type and appointment_type.lower() in ['therapy', 'package']}")
+            
+            if appointment_type and appointment_type.lower() in ['therapy', 'package']:
+                print(f"Checking for existing {appointment_type} appointments on {date_value}")
+                
+                # Check for existing Therapy or Package appointments on the selected date
+                existing_appointments_query = f"""
+                    SELECT COUNT(*) as existing_count
+                    FROM nitya.appointments a
+                    LEFT JOIN nitya.treatments t ON a.appt_treatment_uid = t.treatment_uid
+                    WHERE a.appt_date = '{date_value}'
+                    AND LOWER(t.category) IN ('therapy', 'package')
+                """
+                
+                existing_result = execute(existing_appointments_query, "get", conn)
+                
+                if existing_result and "result" in existing_result and len(existing_result["result"]) > 0:
+                    existing_count = existing_result["result"][0]["existing_count"]
+                    
+                    if existing_count > 0:
+                        print(f"BLOCKING: {appointment_type} appointment requested but {existing_count} Therapy/Package already exists on {date_value}")
+                        return {
+                            "message": "No available time slots found for the selected date. Only one Therapy or Package appointment can be booked per day.",
+                            "code": 280,
+                            "result": [],
+                            "no_availability": True,
+                            "appointment_type": appointment_type,
+                            "requested_date": date_value,
+                            "requested_duration": duration_str,
+                            "restriction_reason": "Therapy/Package limit reached",
+                            "sql": f"Restriction check - {existing_count} existing Therapy/Package appointments found"
+                        }
 
             # Test simple query first
             test_query = "SELECT 1 as test"
@@ -1737,11 +1774,11 @@ class AvailableAppointments(Resource):
                 duration_str,  # 17th placeholder - duration for WHERE clause morning
                 duration_str   # 18th placeholder - duration for WHERE clause afternoon
             )
-            print("Formatted Query: ", formatted_query)
+            # print("Formatted Query: ", formatted_query)
             available_times = execute(formatted_query, "get", conn)
-            print("Execute response: ", available_times)
+            # print("Execute response: ", available_times)
             if "result" in available_times:
-                print("Available Times: ", str(available_times["result"]))
+                # print("Available Times: ", str(available_times["result"]))
                 print("Number of time slots: ", len(available_times["result"]))
                 
                 # Check if no times are available
@@ -1762,9 +1799,21 @@ class AvailableAppointments(Resource):
                 from datetime import datetime
                 appointment_date = datetime.strptime(date_value, '%Y-%m-%d')
                 
-                # Set date range for FreeBusy check - only the appointment date
-                freebusy_start = appointment_date.strftime('%Y-%m-%dT00:00:00Z')
-                freebusy_end = appointment_date.strftime('%Y-%m-%dT23:59:59Z')
+                # Set date range for FreeBusy check - cover full Pacific Time day
+                # Pacific Time can be UTC-8 (standard) or UTC-7 (daylight)
+                # To be safe, query from 16 hours before to 16 hours after the date
+                from datetime import timedelta
+                import pytz
+                
+                pacific = pytz.timezone('US/Pacific')
+                
+                # Create Pacific Time start and end of day
+                pacific_start = pacific.localize(datetime.combine(appointment_date, datetime.min.time()))
+                pacific_end = pacific.localize(datetime.combine(appointment_date, datetime.max.time().replace(microsecond=0)))
+                
+                # Convert to UTC for FreeBusy API
+                freebusy_start = pacific_start.astimezone(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+                freebusy_end = pacific_end.astimezone(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
                 
                 print(f"FreeBusy check for specific date:")
                 print(f"  Appointment date: {appointment_date.strftime('%Y-%m-%d')}")
@@ -1777,26 +1826,24 @@ class AvailableAppointments(Resource):
                     print("FreeBusy data retrieved successfully")
                     print(f"FreeBusy data: {freebusy_data}")
                     
-                    # Since we're only checking the specific date, we can use the busy periods directly
+                    # Filter busy periods to only include those on the appointment date in Pacific Time
                     appointment_busy_periods = []
                     for calendar_id, calendar_data in freebusy_data.get('calendars', {}).items():
                         if 'busy' in calendar_data:
                             for busy_period in calendar_data['busy']:
                                 if 'start' in busy_period and 'end' in busy_period:
-                                    from datetime import datetime
-                                    import pytz
-                                    
-                                    pacific = pytz.timezone('US/Pacific')
                                     busy_start = datetime.fromisoformat(busy_period['start'].replace('Z', '+00:00'))
                                     busy_end = datetime.fromisoformat(busy_period['end'].replace('Z', '+00:00'))
                                     
                                     busy_start_pacific = busy_start.astimezone(pacific)
                                     busy_end_pacific = busy_end.astimezone(pacific)
                                     
-                                    appointment_busy_periods.append({
-                                        'start': busy_start_pacific,
-                                        'end': busy_end_pacific
-                                    })
+                                    # Only include busy periods that fall on the appointment date
+                                    if busy_start_pacific.date() == appointment_date.date():
+                                        appointment_busy_periods.append({
+                                            'start': busy_start_pacific,
+                                            'end': busy_end_pacific
+                                        })
                     
                     print(f"Found {len(appointment_busy_periods)} busy periods for {date_value}")
                     
@@ -1847,7 +1894,7 @@ class AvailableAppointments(Resource):
                 available_times["appointment_type"] = appointment_type
                 available_times["requested_date"] = date_value
                 available_times["requested_duration"] = duration_str
-            
+
             return available_times
 
         except Exception as e:
@@ -3203,8 +3250,11 @@ class SendEmailPaymentIntent(Resource):
             phone = data["phone"]
             email = data["email"]
             message = data["message"]
+            print("1")
             error = data['error']
+            print("2")
             endpoint_call = data['endpoint_call']
+            print("3")
             jsonObject_sent = data['jsonObject_sent']
             print("first email sent")
             print(name, email, phone, message)
@@ -3330,7 +3380,7 @@ class SendEmail(Resource):
             # print(datetime_object2)
             day = datetime_object2.strftime("%A")
             # print(day)
-            
+
             # print(subject[3])
             # time_num = subject[2][0:4]
             # print(time_num)
