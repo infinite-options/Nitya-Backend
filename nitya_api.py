@@ -1648,15 +1648,19 @@ class AvailableAppointments(Resource):
                     print("FreeBusy data retrieved successfully")
                     print(f"FreeBusy data: {freebusy_data}")
                     
+                    # Pre-filter busy periods for the appointment date to improve performance
+                    appointment_busy_periods = filter_busy_periods_for_date(freebusy_data, date_value)
+                    print(f"Pre-filtered {len(appointment_busy_periods)} busy periods for {date_value}")
+                    
                     # Update availability_status based on Google Calendar
                     blocked_count = 0
                     for time_slot in available_times["result"]:
                         if "available_time" in time_slot and "end_time" in time_slot:
-                            is_busy = is_time_slot_busy(
+                            is_busy = is_time_slot_busy_optimized(
                                 time_slot["available_time"], 
                                 time_slot["end_time"], 
-                                freebusy_data,
-                                date_value  # Pass the appointment date
+                                appointment_busy_periods,
+                                date_value
                             )
                             
                             if is_busy:
@@ -2217,6 +2221,91 @@ def convert_to_pacific_time(freebusy_data):
         return freebusy_data
 
 
+def filter_busy_periods_for_date(freebusy_data, appointment_date):
+    """
+    Filter busy periods to only include those on the appointment date
+    Returns a list of busy periods for the specific date
+    """
+    try:
+        from datetime import datetime
+        import pytz
+        
+        pacific = pytz.timezone('US/Pacific')
+        appointment_date_obj = datetime.strptime(appointment_date, '%Y-%m-%d').date()
+        appointment_busy_periods = []
+        
+        for calendar_id, calendar_data in freebusy_data['calendars'].items():
+            if 'busy' in calendar_data:
+                for busy_period in calendar_data['busy']:
+                    if 'start' in busy_period and 'end' in busy_period:
+                        # Parse busy period times
+                        busy_start = datetime.fromisoformat(busy_period['start'].replace('Z', '+00:00'))
+                        busy_end = datetime.fromisoformat(busy_period['end'].replace('Z', '+00:00'))
+                        
+                        # Convert to Pacific Time
+                        busy_start_pacific = busy_start.astimezone(pacific)
+                        busy_end_pacific = busy_end.astimezone(pacific)
+                        
+                        # Only include busy periods on the appointment date
+                        if busy_start_pacific.date() == appointment_date_obj:
+                            appointment_busy_periods.append({
+                                'start': busy_start_pacific,
+                                'end': busy_end_pacific
+                            })
+        
+        return appointment_busy_periods
+        
+    except Exception as e:
+        print(f"Error filtering busy periods: {e}")
+        return []
+
+
+def is_time_slot_busy_optimized(time_slot_start, time_slot_end, appointment_busy_periods, appointment_date):
+    """
+    Check if a time slot conflicts with pre-filtered busy periods for the appointment date
+    Returns True if busy, False if available
+    """
+    try:
+        if not appointment_busy_periods:
+            return False
+            
+        # Convert time slot to datetime objects for comparison
+        from datetime import datetime
+        import pytz
+        
+        pacific = pytz.timezone('US/Pacific')
+        
+        # Parse time slot times (assuming they're in format like "09:00 AM")
+        time_slot_start_dt = datetime.strptime(time_slot_start, '%I:%M %p').time()
+        time_slot_end_dt = datetime.strptime(time_slot_end, '%I:%M %p').time()
+        
+        # Use the appointment date for the time slot
+        appointment_date_obj = datetime.strptime(appointment_date, '%Y-%m-%d').date()
+        time_slot_start_full = pacific.localize(datetime.combine(appointment_date_obj, time_slot_start_dt))
+        time_slot_end_full = pacific.localize(datetime.combine(appointment_date_obj, time_slot_end_dt))
+        
+        print(f"Checking time slot: {time_slot_start}-{time_slot_end} on {appointment_date}")
+        print(f"Time slot full range: {time_slot_start_full} to {time_slot_end_full}")
+        
+        # Check time slot against pre-filtered busy periods
+        for busy_period in appointment_busy_periods:
+            busy_start_pacific = busy_period['start']
+            busy_end_pacific = busy_period['end']
+            
+            # Check if time slot overlaps with busy period
+            if (time_slot_start_full < busy_end_pacific and time_slot_end_full > busy_start_pacific):
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                return True
+            else:
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+        
+        return False
+        
+    except Exception as e:
+        print(f"Error checking time slot busy status: {e}")
+        return False
+
+
 def is_time_slot_busy(time_slot_start, time_slot_end, freebusy_data, appointment_date):
     """
     Check if a time slot conflicts with Google Calendar busy times
@@ -2244,7 +2333,8 @@ def is_time_slot_busy(time_slot_start, time_slot_end, freebusy_data, appointment
         print(f"Checking time slot: {time_slot_start}-{time_slot_end} on {appointment_date}")
         print(f"Time slot full range: {time_slot_start_full} to {time_slot_end_full}")
         
-        # Check each calendar for busy times
+        # Filter busy periods to only include those on the appointment date
+        appointment_busy_periods = []
         for calendar_id, calendar_data in freebusy_data['calendars'].items():
             if 'busy' in calendar_data:
                 for busy_period in calendar_data['busy']:
@@ -2257,12 +2347,26 @@ def is_time_slot_busy(time_slot_start, time_slot_end, freebusy_data, appointment
                         busy_start_pacific = busy_start.astimezone(pacific)
                         busy_end_pacific = busy_end.astimezone(pacific)
                         
-                        # Check if time slot overlaps with busy period
-                        if (time_slot_start_full < busy_end_pacific and time_slot_end_full > busy_start_pacific):
-                            print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
-                            return True
-                        else:
-                            print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                        # Only check busy periods on the appointment date
+                        if busy_start_pacific.date() == appointment_date_obj:
+                            appointment_busy_periods.append({
+                                'start': busy_start_pacific,
+                                'end': busy_end_pacific
+                            })
+        
+        print(f"Found {len(appointment_busy_periods)} busy periods on {appointment_date}")
+        
+        # Check time slot against busy periods on the appointment date only
+        for busy_period in appointment_busy_periods:
+            busy_start_pacific = busy_period['start']
+            busy_end_pacific = busy_period['end']
+            
+            # Check if time slot overlaps with busy period
+            if (time_slot_start_full < busy_end_pacific and time_slot_end_full > busy_start_pacific):
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                return True
+            else:
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
         
         return False
         
