@@ -1616,6 +1616,66 @@ class AvailableAppointments(Resource):
             if "result" in available_times:
                 print("Available Times: ", str(available_times["result"]))
                 print("Number of time slots: ", len(available_times["result"]))
+                
+                # Get Google Calendar FreeBusy data for user 100-000093
+                print("=== GOOGLE CALENDAR INTEGRATION ===")
+                print("Checking Google Calendar for user 100-000093...")
+                
+                # Calculate date range: from current day to selected day OR 7 days, whichever is longer
+                from datetime import datetime, timedelta
+                current_date = datetime.now()
+                appointment_date = datetime.strptime(date_value, '%Y-%m-%d')
+                
+                # Calculate days between current date and appointment date
+                days_diff = (appointment_date - current_date).days
+                days_to_check = max(days_diff, 7)  # At least 7 days
+                
+                # Set date range for FreeBusy check
+                freebusy_start = current_date.strftime('%Y-%m-%dT00:00:00Z')
+                freebusy_end = (current_date + timedelta(days=days_to_check)).strftime('%Y-%m-%dT23:59:59Z')
+                
+                print(f"Date range calculation:")
+                print(f"  Current date: {current_date.strftime('%Y-%m-%d')}")
+                print(f"  Appointment date: {appointment_date.strftime('%Y-%m-%d')}")
+                print(f"  Days difference: {days_diff}")
+                print(f"  Days to check: {days_to_check} (max of {days_diff} and 7)")
+                print(f"  FreeBusy range: {freebusy_start} to {freebusy_end}")
+                
+                # Get FreeBusy data
+                freebusy_data = get_freebusy_data("100-000093", freebusy_start, freebusy_end)
+                
+                if freebusy_data:
+                    print("FreeBusy data retrieved successfully")
+                    print(f"FreeBusy data: {freebusy_data}")
+                    
+                    # Update availability_status based on Google Calendar
+                    blocked_count = 0
+                    for time_slot in available_times["result"]:
+                        if "available_time" in time_slot and "end_time" in time_slot:
+                            is_busy = is_time_slot_busy(
+                                time_slot["available_time"], 
+                                time_slot["end_time"], 
+                                freebusy_data,
+                                date_value  # Pass the appointment date
+                            )
+                            
+                            if is_busy:
+                                # Update availability_status to indicate Google Calendar conflict
+                                if time_slot.get("availability_status") == "OK":
+                                    time_slot["availability_status"] = "BLOCKED_GOOGLE_CALENDAR"
+                                    blocked_count += 1
+                                    print(f"Updated {time_slot['available_time']} to BLOCKED_GOOGLE_CALENDAR")
+                    
+                    print(f"=== INTEGRATION SUMMARY ===")
+                    print(f"Total time slots checked: {len(available_times['result'])}")
+                    print(f"Time slots blocked by Google Calendar: {blocked_count}")
+                    print(f"Time slots remaining available: {len(available_times['result']) - blocked_count}")
+                else:
+                    print("No FreeBusy data available - continuing with original availability status")
+                    print("This could be due to:")
+                    print("  - User 100-000093 not found")
+                    print("  - No valid Google tokens")
+                    print("  - Google Calendar API error")
             else:
                 print("No result key in response")
             # print("Available Times: ", str(available_times['result'][0]["appt_start"]))
@@ -1969,6 +2029,146 @@ class GooglecalendarEvents(Resource):
             disconnect(conn)
 
 
+def get_freebusy_data(customer_uid, start_date, end_date):
+    """
+    Get FreeBusy data for a customer from Google Calendar API
+    Returns busy times in Pacific Time
+    """
+    try:
+        # Get user tokens
+        conn = connect()
+        items = execute(
+            """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+            + customer_uid
+            + """\'""",
+            "get",
+            conn,
+        )
+        
+        if len(items["result"]) == 0:
+            print("No user found for FreeBusy check")
+            return None
+            
+        print("FreeBusy - Retrieved user tokens")
+        
+        # Check if tokens need refreshing (same logic as GoogleFreeBusy endpoint)
+        needs_refresh = (
+            items["result"][0]["access_expires_in"] == None
+            or items["result"][0]["social_timestamp"] == None
+            or items["result"][0]["user_refresh_token"] == None
+        )
+        
+        if not needs_refresh:
+            # Check if existing tokens are still valid
+            from datetime import datetime
+            access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
+            social_timestamp = datetime.strptime(
+                items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
+            )
+            current_timestamp = datetime.strptime(getNow(), "%Y-%m-%d %H:%M:%S")
+            diff = (current_timestamp - social_timestamp).total_seconds() / 60
+            
+            if int(diff) > int(access_issue_min):
+                needs_refresh = True
+                print("FreeBusy - Tokens expired, need refresh")
+        
+        if needs_refresh:
+            print("FreeBusy - Refreshing tokens...")
+            try:
+                if items["result"][0]["user_refresh_token"] is None:
+                    print("FreeBusy - No refresh token available")
+                    return None
+                
+                f = open("credentials.json")
+                data = json.load(f)
+                client_id = data["web"]["client_id"]
+                client_secret = data["web"]["client_secret"]
+                
+                params = {
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": items["result"][0]["user_refresh_token"],
+                }
+                
+                authorization_url = "https://accounts.google.com/o/oauth2/token"
+                r = requests.post(authorization_url, data=params)
+                
+                if r.ok:
+                    auth_token = r.json()["access_token"]
+                    expires_in = r.json()["expires_in"]
+                    
+                    execute(
+                        """UPDATE customers SET
+                                    user_access_token = \'"""
+                        + str(auth_token)
+                        + """\'
+                                    , social_timestamp = \'"""
+                        + str(getNow())
+                        + """\'
+                                    , access_expires_in = \'"""
+                        + str(expires_in)
+                        + """\'
+                                    WHERE customer_uid = \'"""
+                        + customer_uid
+                        + """\';""",
+                        "post",
+                        conn,
+                    )
+                    
+                    # Get updated tokens
+                    items = execute(
+                        """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+                        + customer_uid
+                        + """\'""",
+                        "get",
+                        conn,
+                    )
+                    print("FreeBusy - Tokens refreshed successfully")
+                else:
+                    print(f"FreeBusy - Failed to refresh tokens: {r.status_code}")
+                    return None
+            except Exception as e:
+                print(f"FreeBusy - Error refreshing tokens: {e}")
+                return None
+            
+        # Use tokens to fetch FreeBusy information
+        print("FreeBusy - Making API request...")
+        url = "https://www.googleapis.com/calendar/v3/freeBusy"
+        
+        headers = {
+            "Authorization": f"Bearer {items['result'][0]['user_access_token']}",
+            "Content-Type": "application/json"
+        }
+        
+        body = {
+            "timeMin": start_date,
+            "timeMax": end_date,
+            "items": [{"id": "primary"}]
+        }
+        
+        print(f"FreeBusy - Request body: {body}")
+        response = requests.post(url, headers=headers, data=json.dumps(body))
+        print(f"FreeBusy - Response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            freebusy_data = response.json()
+            print("FreeBusy - API call successful")
+            # Convert to Pacific Time
+            pacific_data = convert_to_pacific_time(freebusy_data)
+            return pacific_data
+        else:
+            print(f"FreeBusy API error: {response.status_code}")
+            print(f"FreeBusy API error response: {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"Error getting FreeBusy data: {e}")
+        return None
+    finally:
+        disconnect(conn)
+
+
 def convert_to_pacific_time(freebusy_data):
     """
     Convert UTC times in Google FreeBusy response to Pacific Time
@@ -2015,6 +2215,60 @@ def convert_to_pacific_time(freebusy_data):
         print(f"Error converting to Pacific Time: {e}")
         # Return original data if conversion fails
         return freebusy_data
+
+
+def is_time_slot_busy(time_slot_start, time_slot_end, freebusy_data, appointment_date):
+    """
+    Check if a time slot conflicts with Google Calendar busy times
+    Returns True if busy, False if available
+    """
+    try:
+        if not freebusy_data or 'calendars' not in freebusy_data:
+            return False
+            
+        # Convert time slot to datetime objects for comparison
+        from datetime import datetime
+        import pytz
+        
+        pacific = pytz.timezone('US/Pacific')
+        
+        # Parse time slot times (assuming they're in format like "09:00 AM")
+        time_slot_start_dt = datetime.strptime(time_slot_start, '%I:%M %p').time()
+        time_slot_end_dt = datetime.strptime(time_slot_end, '%I:%M %p').time()
+        
+        # Use the appointment date for the time slot (not today's date)
+        appointment_date_obj = datetime.strptime(appointment_date, '%Y-%m-%d').date()
+        time_slot_start_full = pacific.localize(datetime.combine(appointment_date_obj, time_slot_start_dt))
+        time_slot_end_full = pacific.localize(datetime.combine(appointment_date_obj, time_slot_end_dt))
+        
+        print(f"Checking time slot: {time_slot_start}-{time_slot_end} on {appointment_date}")
+        print(f"Time slot full range: {time_slot_start_full} to {time_slot_end_full}")
+        
+        # Check each calendar for busy times
+        for calendar_id, calendar_data in freebusy_data['calendars'].items():
+            if 'busy' in calendar_data:
+                for busy_period in calendar_data['busy']:
+                    if 'start' in busy_period and 'end' in busy_period:
+                        # Parse busy period times
+                        busy_start = datetime.fromisoformat(busy_period['start'].replace('Z', '+00:00'))
+                        busy_end = datetime.fromisoformat(busy_period['end'].replace('Z', '+00:00'))
+                        
+                        # Convert to Pacific Time
+                        busy_start_pacific = busy_start.astimezone(pacific)
+                        busy_end_pacific = busy_end.astimezone(pacific)
+                        
+                        # Check if time slot overlaps with busy period
+                        if (time_slot_start_full < busy_end_pacific and time_slot_end_full > busy_start_pacific):
+                            print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                            return True
+                        else:
+                            print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+        
+        return False
+        
+    except Exception as e:
+        print(f"Error checking time slot busy status: {e}")
+        return False
 
 
 class GoogleFreeBusy(Resource):
