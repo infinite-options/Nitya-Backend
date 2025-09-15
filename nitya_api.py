@@ -2207,19 +2207,32 @@ def get_freebusy_data(customer_uid, start_date, end_date):
             or items["result"][0]["user_refresh_token"] == None
         )
         
+        print(f"FreeBusy - Initial needs_refresh: {needs_refresh}")
+        print(f"FreeBusy - access_expires_in: {items['result'][0]['access_expires_in']}")
+        print(f"FreeBusy - social_timestamp: {items['result'][0]['social_timestamp']}")
+        print(f"FreeBusy - user_refresh_token: {items['result'][0]['user_refresh_token'][:20] if items['result'][0]['user_refresh_token'] else 'None'}...")
+        
         if not needs_refresh:
             # Check if existing tokens are still valid
             from datetime import datetime
-            access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
-            social_timestamp = datetime.strptime(
-                items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
-            )
-            current_timestamp = datetime.strptime(getNow(), "%Y-%m-%d %H:%M:%S")
-            diff = (current_timestamp - social_timestamp).total_seconds() / 60
-            
-            if int(diff) > int(access_issue_min):
+            try:
+                access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
+                social_timestamp = datetime.strptime(
+                    items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
+                )
+                current_timestamp = datetime.strptime(getNow(), "%Y-%m-%d %H:%M:%S")
+                diff = (current_timestamp - social_timestamp).total_seconds() / 60
+                
+                print(f"FreeBusy - Token age: {diff} minutes, expires in: {access_issue_min} minutes")
+                
+                if int(diff) > int(access_issue_min):
+                    needs_refresh = True
+                    print("FreeBusy - Tokens expired, need refresh")
+                else:
+                    print("FreeBusy - Tokens still valid, no refresh needed")
+            except Exception as e:
+                print(f"FreeBusy - Error checking token validity: {e}")
                 needs_refresh = True
-                print("FreeBusy - Tokens expired, need refresh")
         
         if needs_refresh:
             print("FreeBusy - Refreshing tokens...")
@@ -2241,11 +2254,23 @@ def get_freebusy_data(customer_uid, start_date, end_date):
                 }
                 
                 authorization_url = "https://accounts.google.com/o/oauth2/token"
+                print(f"FreeBusy - Refreshing token with URL: {authorization_url}")
+                print(f"FreeBusy - Refresh params: {params}")
+                
                 r = requests.post(authorization_url, data=params)
+                print(f"FreeBusy - Token refresh response status: {r.status_code}")
                 
                 if r.ok:
-                    auth_token = r.json()["access_token"]
-                    expires_in = r.json()["expires_in"]
+                    response_data = r.json()
+                    auth_token = response_data.get("access_token")
+                    expires_in = response_data.get("expires_in")
+                    
+                    if not auth_token or not expires_in:
+                        print(f"FreeBusy - Invalid token refresh response: {response_data}")
+                        return None
+                    
+                    print(f"FreeBusy - New access token: {auth_token[:20]}...")
+                    print(f"FreeBusy - Token expires in: {expires_in} seconds")
                     
                     execute(
                         """UPDATE customers SET
@@ -2276,17 +2301,104 @@ def get_freebusy_data(customer_uid, start_date, end_date):
                     print("FreeBusy - Tokens refreshed successfully")
                 else:
                     print(f"FreeBusy - Failed to refresh tokens: {r.status_code}")
+                    print(f"FreeBusy - Error response: {r.text}")
                     return None
             except Exception as e:
                 print(f"FreeBusy - Error refreshing tokens: {e}")
                 return None
             
+        # Validate access token before making API call
+        access_token = items['result'][0]['user_access_token']
+        if not access_token or access_token == 'None' or access_token == '':
+            print("FreeBusy - No valid access token available")
+            return None
+            
+        print(f"FreeBusy - Using access token: {access_token[:20]}...")
+        
+        # Test the token with a simple API call first
+        print("FreeBusy - Testing token validity...")
+        test_url = "https://www.googleapis.com/calendar/v3/calendars/primary"
+        test_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        test_response = requests.get(test_url, headers=test_headers)
+        print(f"FreeBusy - Token test response status: {test_response.status_code}")
+        
+        if test_response.status_code == 401:
+            print("FreeBusy - Token is invalid, forcing refresh...")
+            # Force token refresh
+            try:
+                f = open("credentials.json")
+                data = json.load(f)
+                client_id = data["web"]["client_id"]
+                client_secret = data["web"]["client_secret"]
+                
+                params = {
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": items["result"][0]["user_refresh_token"],
+                }
+                
+                authorization_url = "https://accounts.google.com/o/oauth2/token"
+                print(f"FreeBusy - Forcing token refresh...")
+                
+                r = requests.post(authorization_url, data=params)
+                print(f"FreeBusy - Forced refresh response status: {r.status_code}")
+                
+                if r.ok:
+                    response_data = r.json()
+                    auth_token = response_data.get("access_token")
+                    expires_in = response_data.get("expires_in")
+                    
+                    if auth_token and expires_in:
+                        print(f"FreeBusy - New access token: {auth_token[:20]}...")
+                        
+                        execute(
+                            """UPDATE customers SET
+                                        user_access_token = \'"""
+                            + str(auth_token)
+                            + """\'
+                                        , social_timestamp = \'"""
+                            + str(getNow())
+                            + """\'
+                                        , access_expires_in = \'"""
+                            + str(expires_in)
+                            + """\'
+                                        WHERE customer_uid = \'"""
+                            + customer_uid
+                            + """\';""",
+                            "post",
+                            conn,
+                        )
+                        
+                        # Update access_token for this request
+                        access_token = auth_token
+                        print("FreeBusy - Token refreshed successfully")
+                    else:
+                        print("FreeBusy - Invalid refresh response")
+                        return None
+                else:
+                    print(f"FreeBusy - Token refresh failed: {r.status_code}")
+                    print(f"FreeBusy - Error: {r.text}")
+                    return None
+            except Exception as e:
+                print(f"FreeBusy - Error during forced refresh: {e}")
+                return None
+        elif test_response.status_code != 200:
+            print(f"FreeBusy - Token test failed with status: {test_response.status_code}")
+            return None
+        else:
+            print("FreeBusy - Token is valid")
+        
         # Use tokens to fetch FreeBusy information
-        print("FreeBusy - Making API request...")
+        print("FreeBusy - Making FreeBusy API request...")
         url = "https://www.googleapis.com/calendar/v3/freeBusy"
         
         headers = {
-            "Authorization": f"Bearer {items['result'][0]['user_access_token']}",
+            "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
         }
         
@@ -2769,20 +2881,34 @@ class GoogleFreeBusy(Resource):
                 or items["result"][0]["user_refresh_token"] == None
             )
             
+            print(f"GoogleFreeBusy - Initial needs_refresh: {needs_refresh}")
+            print(f"GoogleFreeBusy - access_expires_in: {items['result'][0]['access_expires_in']}")
+            print(f"GoogleFreeBusy - social_timestamp: {items['result'][0]['social_timestamp']}")
+            print(f"GoogleFreeBusy - user_refresh_token: {items['result'][0]['user_refresh_token'][:20] if items['result'][0]['user_refresh_token'] else 'None'}...")
+            
             if not needs_refresh:
                 # Check if existing tokens are still valid
-                access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
-                social_timestamp = datetime.strptime(
-                    items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
-                )
-                current_timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-                diff = (current_timestamp - social_timestamp).total_seconds() / 60
-                
-                if int(diff) > int(access_issue_min):
+                try:
+                    access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
+                    social_timestamp = datetime.strptime(
+                        items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
+                    )
+                    current_timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                    diff = (current_timestamp - social_timestamp).total_seconds() / 60
+                    
+                    print(f"GoogleFreeBusy - Token age: {diff} minutes, expires in: {access_issue_min} minutes")
+                    
+                    if int(diff) > int(access_issue_min):
+                        needs_refresh = True
+                        print("GoogleFreeBusy - Tokens expired, need refresh")
+                    else:
+                        print("GoogleFreeBusy - Tokens still valid, no refresh needed")
+                except Exception as e:
+                    print(f"GoogleFreeBusy - Error checking token validity: {e}")
                     needs_refresh = True
             
             if needs_refresh:
-                print("Refreshing tokens for FreeBusy...")
+                print("GoogleFreeBusy - Refreshing tokens...")
                 try:
                     if items["result"][0]["user_refresh_token"] is None:
                         return {"error": "No refresh token available. User needs to re-authenticate with Google."}
@@ -2800,11 +2926,23 @@ class GoogleFreeBusy(Resource):
                     }
                     
                     authorization_url = "https://accounts.google.com/o/oauth2/token"
+                    print(f"GoogleFreeBusy - Refreshing token with URL: {authorization_url}")
+                    print(f"GoogleFreeBusy - Refresh params: {params}")
+                    
                     r = requests.post(authorization_url, data=params)
+                    print(f"GoogleFreeBusy - Token refresh response status: {r.status_code}")
                     
                     if r.ok:
-                        auth_token = r.json()["access_token"]
-                        expires_in = r.json()["expires_in"]
+                        response_data = r.json()
+                        auth_token = response_data.get("access_token")
+                        expires_in = response_data.get("expires_in")
+                        
+                        if not auth_token or not expires_in:
+                            print(f"GoogleFreeBusy - Invalid token refresh response: {response_data}")
+                            return {"error": "Invalid token refresh response"}
+                        
+                        print(f"GoogleFreeBusy - New access token: {auth_token[:20]}...")
+                        print(f"GoogleFreeBusy - Token expires in: {expires_in} seconds")
                         
                         execute(
                             """UPDATE customers SET
@@ -2837,12 +2975,98 @@ class GoogleFreeBusy(Resource):
                 except Exception as e:
                     return {"error": f"Error refreshing tokens: {str(e)}"}
             
+            # Validate access token before making API call
+            access_token = items['result'][0]['user_access_token']
+            if not access_token or access_token == 'None' or access_token == '':
+                print("GoogleFreeBusy - No valid access token available")
+                return {"error": "No valid access token available"}
+                
+            print(f"GoogleFreeBusy - Using access token: {access_token[:20]}...")
+            
+            # Test the token with a simple API call first
+            print("GoogleFreeBusy - Testing token validity...")
+            test_url = "https://www.googleapis.com/calendar/v3/calendars/primary"
+            test_headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+            
+            test_response = requests.get(test_url, headers=test_headers)
+            print(f"GoogleFreeBusy - Token test response status: {test_response.status_code}")
+            
+            if test_response.status_code == 401:
+                print("GoogleFreeBusy - Token is invalid, forcing refresh...")
+                # Force token refresh
+                try:
+                    f = open("credentials.json")
+                    data = json.load(f)
+                    client_id = data["web"]["client_id"]
+                    client_secret = data["web"]["client_secret"]
+                    
+                    params = {
+                        "grant_type": "refresh_token",
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "refresh_token": items["result"][0]["user_refresh_token"],
+                    }
+                    
+                    authorization_url = "https://accounts.google.com/o/oauth2/token"
+                    print(f"GoogleFreeBusy - Forcing token refresh...")
+                    
+                    r = requests.post(authorization_url, data=params)
+                    print(f"GoogleFreeBusy - Forced refresh response status: {r.status_code}")
+                    
+                    if r.ok:
+                        response_data = r.json()
+                        auth_token = response_data.get("access_token")
+                        expires_in = response_data.get("expires_in")
+                        
+                        if auth_token and expires_in:
+                            print(f"GoogleFreeBusy - New access token: {auth_token[:20]}...")
+                            
+                            execute(
+                                """UPDATE customers SET
+                                            user_access_token = \'"""
+                                + str(auth_token)
+                                + """\'
+                                            , social_timestamp = \'"""
+                                + str(getNow())
+                                + """\'
+                                            , access_expires_in = \'"""
+                                + str(expires_in)
+                                + """\'
+                                            WHERE customer_uid = \'"""
+                                + customer_uid
+                                + """\';""",
+                                "post",
+                                conn,
+                            )
+                            
+                            # Update access_token for this request
+                            access_token = auth_token
+                            print("GoogleFreeBusy - Token refreshed successfully")
+                        else:
+                            print("GoogleFreeBusy - Invalid refresh response")
+                            return {"error": "Invalid refresh response"}
+                    else:
+                        print(f"GoogleFreeBusy - Token refresh failed: {r.status_code}")
+                        print(f"GoogleFreeBusy - Error: {r.text}")
+                        return {"error": f"Token refresh failed: {r.text}"}
+                except Exception as e:
+                    print(f"GoogleFreeBusy - Error during forced refresh: {e}")
+                    return {"error": f"Error during forced refresh: {str(e)}"}
+            elif test_response.status_code != 200:
+                print(f"GoogleFreeBusy - Token test failed with status: {test_response.status_code}")
+                return {"error": f"Token test failed with status: {test_response.status_code}"}
+            else:
+                print("GoogleFreeBusy - Token is valid")
+            
             # Use tokens to fetch FreeBusy information
-            print("Fetching FreeBusy information...")
+            print("GoogleFreeBusy - Making FreeBusy API request...")
             url = "https://www.googleapis.com/calendar/v3/freeBusy"
             
             headers = {
-                "Authorization": f"Bearer {items['result'][0]['user_access_token']}",
+                "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
             }
             
@@ -2852,15 +3076,15 @@ class GoogleFreeBusy(Resource):
                 "items": [{"id": "primary"}]  # or use customer_email for specific calendar
             }
             
-            print(f"Making FreeBusy request to: {url}")
-            print(f"Request body: {body}")
+            # print(f"Making FreeBusy request to: {url}")
+            # print(f"Request body: {body}")
             
             response = requests.post(url, headers=headers, data=json.dumps(body))
-            print(f"Response status: {response.status_code}")
+            # print(f"Response status: {response.status_code}")
             
             if response.status_code == 200:
                 freebusy_data = response.json()
-                print(f"FreeBusy response (UTC): {freebusy_data}")
+                # print(f"FreeBusy response (UTC): {freebusy_data}")
                 
                 # Convert UTC times to Pacific Time
                 pacific_data = convert_to_pacific_time(freebusy_data)
