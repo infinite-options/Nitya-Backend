@@ -992,6 +992,40 @@ class CreateAppointment(Resource):
             print("purchase_price", purchase_price)
             print("purchase_date", purchase_date)
             print("age", age)
+            
+            # VALIDATE APPOINTMENT DATE - ONLY ALLOW NEXT DAY OR LATER
+            from datetime import datetime, timedelta
+            try:
+                appointment_datetime = datetime.strptime(f"{datevalue} {timevalue}", "%Y-%m-%d %H:%M")
+                current_datetime = datetime.now()
+                
+                # Get tomorrow's date (next day at 00:00:00)
+                tomorrow = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                
+                print(f"Appointment datetime: {appointment_datetime}")
+                print(f"Current datetime: {current_datetime}")
+                print(f"Tomorrow (earliest allowed): {tomorrow}")
+                
+                if appointment_datetime < tomorrow:
+                    # Check if it's same day or past date
+                    appointment_date = appointment_datetime.date()
+                    current_date = current_datetime.date()
+                    
+                    if appointment_date == current_date:
+                        print("ERROR: Cannot book appointment for same day")
+                        raise BadRequest("For same day appointments please contact the Practitioner directly.")
+                    else:
+                        print("ERROR: Cannot book appointment in the past")
+                        raise BadRequest("Error: Appointment date is invalid. Please select a future date.")
+                    
+                print("Appointment date validation passed - booking for next day or later")
+                
+            except ValueError as e:
+                print(f"ERROR: Invalid date/time format: {e}")
+                raise BadRequest("Invalid date or time format. Please use YYYY-MM-DD for date and HH:MM for time.")
+            except Exception as e:
+                print(f"ERROR: Date validation failed: {e}")
+                raise BadRequest(f"Date validation failed: {str(e)}")
 
             #  CREATE CUSTOMER APPOINTMENT UID
             # Query [0]  Get New UID
@@ -1124,9 +1158,64 @@ class CreateAppointment(Resource):
             print('response', response)
             SendEmail.get(self, name, age, gender,
                           mode, str(notes), email, phone_no, message)
-
+            print("Email sent")
+            
+            # Create Google Calendar event for practitioner
+            try:
+                print("=== CREATING GOOGLE CALENDAR EVENT ===")
+                
+                # Get treatment duration for calendar event
+                treatment_query = f"""
+                    SELECT duration FROM nitya.treatments 
+                    WHERE treatment_uid = '{treatment_uid}'
+                """
+                treatment_duration = execute(treatment_query, "get", conn)
+                duration = treatment_duration['result'][0]['duration'] if treatment_duration['result'] else "01:00"
+                
+                # Determine location based on mode
+                if mode == 'Online':
+                    location = 'Online - Zoom link will be sent via email'
+                else:
+                    location = '1610 Blossom Hill Rd. Suite 1, San Jose, CA 95124'
+                
+                # Prepare appointment details for calendar event
+                appointment_details = {
+                    'customer_name': name,
+                    'customer_email': email,
+                    'customer_phone': phone_no,
+                    'treatment_title': treatment['result'][0]['title'],
+                    'date': datevalue,
+                    'time': timevalue,
+                    'duration': duration,
+                    'age': age,
+                    'gender': gender,
+                    'mode': mode,
+                    'notes': str(notes),
+                    'purchase_price': purchase_price,
+                    'location': location
+                }
+                
+                # Create calendar event for practitioner (user 100-000093)
+                calendar_event = create_google_calendar_event("100-000093", appointment_details)
+                
+                if calendar_event:
+                    print(f"Google Calendar event created successfully: {calendar_event.get('id')}")
+                    response["calendar_event_id"] = calendar_event.get('id')
+                    response["calendar_event_url"] = calendar_event.get('htmlLink')
+                else:
+                    print("Failed to create Google Calendar event")
+                    response["calendar_error"] = "Appointment created but calendar event failed"
+                    
+            except Exception as e:
+                print(f"Error creating Google Calendar event: {e}")
+                response["calendar_error"] = f"Appointment created but calendar event failed: {str(e)}"
+            
             return response, 200
-        except:
+        except BadRequest as e:
+            # Re-raise BadRequest exceptions to preserve custom error messages
+            raise e
+        except Exception as e:
+            print(f"Unexpected error in CreateAppointment: {e}")
             raise BadRequest("Request failed app, please try again later.")
         finally:
             disconnect(conn)
@@ -1447,6 +1536,37 @@ class AvailableAppointments(Resource):
         try:
             conn = connect()
             print("Inside try block", date_value, duration_str)
+            
+            # VALIDATE APPOINTMENT DATE - PREVENT BOOKING TODAY OR IN THE PAST
+            from datetime import datetime
+            try:
+                appointment_date = datetime.strptime(date_value, '%Y-%m-%d').date()
+                current_date = datetime.now().date()
+                
+                print(f"Appointment date: {appointment_date}")
+                print(f"Current date: {current_date}")
+                
+                if appointment_date <= current_date:
+                    print("ERROR: Cannot show availability for today or past dates")
+                    return {
+                        "message": "No available time slots found for the selected date.",
+                        "code": 280,
+                        "result": [],
+                        "no_availability": True,
+                        "sql": "Date validation - past/today not allowed"
+                    }
+                    
+                print("Date validation passed - showing availability for future date")
+                
+            except ValueError as e:
+                print(f"ERROR: Invalid date format: {e}")
+                return {
+                    "message": "No available time slots found for the selected date.",
+                    "code": 280,
+                    "result": [],
+                    "no_availability": True,
+                    "sql": f"Invalid date format: {str(e)}"
+                }
 
             # Test simple query first
             test_query = "SELECT 1 as test"
@@ -1617,40 +1737,58 @@ class AvailableAppointments(Resource):
                 print("Available Times: ", str(available_times["result"]))
                 print("Number of time slots: ", len(available_times["result"]))
                 
+                # Check if no times are available
+                if len(available_times["result"]) == 0:
+                    print("No available time slots found for the selected date")
+                    available_times["message"] = "No available time slots found for the selected date. Please try a different date or contact the practitioner directly."
+                    available_times["no_availability"] = True
+                    return available_times
+                
                 # Get Google Calendar FreeBusy data for user 100-000093
                 print("=== GOOGLE CALENDAR INTEGRATION ===")
                 print("Checking Google Calendar for user 100-000093...")
                 
-                # Calculate date range: from current day to selected day OR 7 days, whichever is longer
-                from datetime import datetime, timedelta
-                current_date = datetime.now()
+                # Check only the specific appointment date (more efficient)
+                from datetime import datetime
                 appointment_date = datetime.strptime(date_value, '%Y-%m-%d')
                 
-                # Calculate days between current date and appointment date
-                days_diff = (appointment_date - current_date).days
-                days_to_check = max(days_diff, 7)  # At least 7 days
+                # Set date range for FreeBusy check - only the appointment date
+                freebusy_start = appointment_date.strftime('%Y-%m-%dT00:00:00Z')
+                freebusy_end = appointment_date.strftime('%Y-%m-%dT23:59:59Z')
                 
-                # Set date range for FreeBusy check
-                freebusy_start = current_date.strftime('%Y-%m-%dT00:00:00Z')
-                freebusy_end = (current_date + timedelta(days=days_to_check)).strftime('%Y-%m-%dT23:59:59Z')
-                
-                print(f"Date range calculation:")
-                print(f"  Current date: {current_date.strftime('%Y-%m-%d')}")
+                print(f"FreeBusy check for specific date:")
                 print(f"  Appointment date: {appointment_date.strftime('%Y-%m-%d')}")
-                print(f"  Days difference: {days_diff}")
-                print(f"  Days to check: {days_to_check} (max of {days_diff} and 7)")
                 print(f"  FreeBusy range: {freebusy_start} to {freebusy_end}")
                 
-                # Get FreeBusy data
+                # Get FreeBusy data for the specific date only
                 freebusy_data = get_freebusy_data("100-000093", freebusy_start, freebusy_end)
                 
                 if freebusy_data:
                     print("FreeBusy data retrieved successfully")
                     print(f"FreeBusy data: {freebusy_data}")
                     
-                    # Pre-filter busy periods for the appointment date to improve performance
-                    appointment_busy_periods = filter_busy_periods_for_date(freebusy_data, date_value)
-                    print(f"Pre-filtered {len(appointment_busy_periods)} busy periods for {date_value}")
+                    # Since we're only checking the specific date, we can use the busy periods directly
+                    appointment_busy_periods = []
+                    for calendar_id, calendar_data in freebusy_data.get('calendars', {}).items():
+                        if 'busy' in calendar_data:
+                            for busy_period in calendar_data['busy']:
+                                if 'start' in busy_period and 'end' in busy_period:
+                                    from datetime import datetime
+                                    import pytz
+                                    
+                                    pacific = pytz.timezone('US/Pacific')
+                                    busy_start = datetime.fromisoformat(busy_period['start'].replace('Z', '+00:00'))
+                                    busy_end = datetime.fromisoformat(busy_period['end'].replace('Z', '+00:00'))
+                                    
+                                    busy_start_pacific = busy_start.astimezone(pacific)
+                                    busy_end_pacific = busy_end.astimezone(pacific)
+                                    
+                                    appointment_busy_periods.append({
+                                        'start': busy_start_pacific,
+                                        'end': busy_end_pacific
+                                    })
+                    
+                    print(f"Found {len(appointment_busy_periods)} busy periods for {date_value}")
                     
                     # Update availability_status based on Google Calendar
                     blocked_count = 0
@@ -1674,6 +1812,13 @@ class AvailableAppointments(Resource):
                     print(f"Total time slots checked: {len(available_times['result'])}")
                     print(f"Time slots blocked by Google Calendar: {blocked_count}")
                     print(f"Time slots remaining available: {len(available_times['result']) - blocked_count}")
+                    
+                    # Check if all times were blocked after Google Calendar processing
+                    available_count = len([slot for slot in available_times['result'] if slot.get('availability_status') == 'OK'])
+                    if available_count == 0 and len(available_times['result']) > 0:
+                        print("All time slots are blocked - no availability")
+                        available_times["message"] = "No available time slots found for the selected date. All times are currently blocked. Please try a different date or contact the practitioner directly."
+                        available_times["no_availability"] = True
                 else:
                     print("No FreeBusy data available - continuing with original availability status")
                     print("This could be due to:")
@@ -2304,6 +2449,200 @@ def is_time_slot_busy_optimized(time_slot_start, time_slot_end, appointment_busy
     except Exception as e:
         print(f"Error checking time slot busy status: {e}")
         return False
+
+
+def create_google_calendar_event(customer_uid, appointment_details):
+    """
+    Create a Google Calendar event for a new appointment
+    """
+    try:
+        conn = connect()
+        
+        # Get practitioner's Google Calendar credentials
+        items = execute(
+            """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+            + customer_uid
+            + """\'""",
+            "get",
+            conn,
+        )
+        
+        if len(items["result"]) == 0:
+            print(f"No Google Calendar credentials found for practitioner {customer_uid}")
+            return None
+            
+        print(f"Creating Google Calendar event for practitioner {customer_uid}")
+        
+        # Check if tokens need refresh
+        needs_refresh = (
+            items["result"][0]["access_expires_in"] == None
+            or items["result"][0]["social_timestamp"] == None
+            or items["result"][0]["user_refresh_token"] == None
+        )
+        
+        if not needs_refresh:
+            from datetime import datetime
+            access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
+            social_timestamp = datetime.strptime(
+                items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
+            )
+            current_timestamp = datetime.strptime(getNow(), "%Y-%m-%d %H:%M:%S")
+            diff = (current_timestamp - social_timestamp).total_seconds() / 60
+            
+            if int(diff) > int(access_issue_min):
+                needs_refresh = True
+                print("Google Calendar tokens expired, refreshing...")
+        
+        if needs_refresh:
+            print("Refreshing Google Calendar tokens...")
+            try:
+                if items["result"][0]["user_refresh_token"] is None:
+                    print("No refresh token available for Google Calendar")
+                    return None
+                
+                f = open("credentials.json")
+                data = json.load(f)
+                client_id = data["web"]["client_id"]
+                client_secret = data["web"]["client_secret"]
+                
+                params = {
+                    "grant_type": "refresh_token",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "refresh_token": items["result"][0]["user_refresh_token"],
+                }
+                
+                authorization_url = "https://accounts.google.com/o/oauth2/token"
+                r = requests.post(authorization_url, data=params)
+                
+                if r.ok:
+                    auth_token = r.json()["access_token"]
+                    expires_in = r.json()["expires_in"]
+                    
+                    execute(
+                        """UPDATE customers SET
+                                    user_access_token = \'"""
+                        + str(auth_token)
+                        + """\'
+                                    , social_timestamp = \'"""
+                        + str(getNow())
+                        + """\'
+                                    , access_expires_in = \'"""
+                        + str(expires_in)
+                        + """\'
+                                    WHERE customer_uid = \'"""
+                        + customer_uid
+                        + """\';""",
+                        "post",
+                        conn,
+                    )
+                    
+                    items = execute(
+                        """SELECT customer_email, user_refresh_token, user_access_token, social_timestamp, access_expires_in FROM customers WHERE customer_uid = \'"""
+                        + customer_uid
+                        + """\'""",
+                        "get",
+                        conn,
+                    )
+                    print("Google Calendar tokens refreshed successfully")
+                else:
+                    print(f"Failed to refresh Google Calendar tokens: {r.status_code}")
+                    return None
+            except Exception as e:
+                print(f"Error refreshing Google Calendar tokens: {e}")
+                return None
+        
+        # Create the calendar event
+        print("Creating Google Calendar event...")
+        
+        # Format appointment details for Google Calendar
+        from datetime import datetime, timedelta
+        import pytz
+        
+        pacific = pytz.timezone('US/Pacific')
+        
+        # Parse appointment date and time
+        appointment_date = appointment_details['date']
+        appointment_time = appointment_details['time']
+        duration = appointment_details['duration']
+        
+        # Create datetime objects
+        start_datetime = datetime.strptime(f"{appointment_date} {appointment_time}", "%Y-%m-%d %H:%M")
+        start_datetime_pacific = pacific.localize(start_datetime)
+        
+        # Calculate end time based on duration
+        duration_parts = duration.split(':')
+        duration_hours = int(duration_parts[0])
+        duration_minutes = int(duration_parts[1])
+        end_datetime_pacific = start_datetime_pacific + timedelta(hours=duration_hours, minutes=duration_minutes)
+        
+        # Convert to UTC for Google Calendar API
+        start_datetime_utc = start_datetime_pacific.astimezone(pytz.UTC)
+        end_datetime_utc = end_datetime_pacific.astimezone(pytz.UTC)
+        
+        # Format for Google Calendar API
+        start_time_iso = start_datetime_utc.isoformat().replace('+00:00', 'Z')
+        end_time_iso = end_datetime_utc.isoformat().replace('+00:00', 'Z')
+        
+        # Create event details
+        event_title = f"{appointment_details['treatment_title']} - {appointment_details['customer_name']}"
+        event_description = f"""
+            Appointment Details:
+            • Customer: {appointment_details['customer_name']}
+            • Email: {appointment_details['customer_email']}
+            • Phone: {appointment_details['customer_phone']}
+            • Age: {appointment_details['age']}
+            • Gender: {appointment_details['gender']}
+            • Mode: {appointment_details['mode']}
+            • Notes: {appointment_details['notes']}
+            • Price: ${appointment_details['purchase_price']}
+                    """.strip()
+        
+        # Prepare event data
+        event_data = {
+            "summary": event_title,
+            "description": event_description,
+            "start": {
+                "dateTime": start_time_iso,
+                "timeZone": "UTC"
+            },
+            "end": {
+                "dateTime": end_time_iso,
+                "timeZone": "UTC"
+            },
+            "location": appointment_details['location'],
+            "reminders": {
+                "useDefault": True
+            }
+        }
+        
+        # Make API call to create event
+        url = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+        headers = {
+            "Authorization": f"Bearer {items['result'][0]['user_access_token']}",
+            "Content-Type": "application/json"
+        }
+        
+        # print(f"Creating event: {event_title}")
+        # print(f"Start time: {start_time_iso}")
+        # print(f"End time: {end_time_iso}")
+        
+        response = requests.post(url, headers=headers, data=json.dumps(event_data))
+        
+        if response.status_code == 200:
+            event_result = response.json()
+            print(f"Google Calendar event created successfully: {event_result.get('id')}")
+            return event_result
+        else:
+            print(f"Failed to create Google Calendar event: {response.status_code}")
+            print(f"Error response: {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"Error creating Google Calendar event: {e}")
+        return None
+    finally:
+        disconnect(conn)
 
 
 def is_time_slot_busy(time_slot_start, time_slot_end, freebusy_data, appointment_date):
