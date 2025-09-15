@@ -1528,14 +1528,15 @@ class purchaseDetails(Resource):
 
 
 class AvailableAppointments(Resource):
-    def get(self, date_value, duration_str):
+    def get(self, date_value, duration_str, appointment_type=None):
         print("\nInside Available Appointments")
+        print(f"Date: {date_value}, Duration: {duration_str}, Type: {appointment_type}")
         response = {}
         items = {}
 
         try:
             conn = connect()
-            print("Inside try block", date_value, duration_str)
+            print("Inside try block", date_value, duration_str, appointment_type)
             
             # VALIDATE APPOINTMENT DATE - PREVENT BOOKING TODAY OR IN THE PAST
             from datetime import datetime
@@ -1553,6 +1554,9 @@ class AvailableAppointments(Resource):
                         "code": 280,
                         "result": [],
                         "no_availability": True,
+                        "appointment_type": appointment_type,
+                        "requested_date": date_value,
+                        "requested_duration": duration_str,
                         "sql": "Date validation - past/today not allowed"
                     }
                     
@@ -1565,6 +1569,9 @@ class AvailableAppointments(Resource):
                     "code": 280,
                     "result": [],
                     "no_availability": True,
+                    "appointment_type": appointment_type,
+                    "requested_date": date_value,
+                    "requested_duration": duration_str,
                     "sql": f"Invalid date format: {str(e)}"
                 }
 
@@ -1742,6 +1749,9 @@ class AvailableAppointments(Resource):
                     print("No available time slots found for the selected date")
                     available_times["message"] = "No available time slots found for the selected date. Please try a different date or contact the practitioner directly."
                     available_times["no_availability"] = True
+                    available_times["appointment_type"] = appointment_type
+                    available_times["requested_date"] = date_value
+                    available_times["requested_duration"] = duration_str
                     return available_times
                 
                 # Get Google Calendar FreeBusy data for user 100-000093
@@ -1819,6 +1829,9 @@ class AvailableAppointments(Resource):
                         print("All time slots are blocked - no availability")
                         available_times["message"] = "No available time slots found for the selected date. All times are currently blocked. Please try a different date or contact the practitioner directly."
                         available_times["no_availability"] = True
+                        available_times["appointment_type"] = appointment_type
+                        available_times["requested_date"] = date_value
+                        available_times["requested_duration"] = duration_str
                 else:
                     print("No FreeBusy data available - continuing with original availability status")
                     print("This could be due to:")
@@ -1829,6 +1842,12 @@ class AvailableAppointments(Resource):
                 print("No result key in response")
             # print("Available Times: ", str(available_times['result'][0]["appt_start"]))
 
+            # Add appointment type to response
+            if available_times and "result" in available_times:
+                available_times["appointment_type"] = appointment_type
+                available_times["requested_date"] = date_value
+                available_times["requested_duration"] = duration_str
+            
             return available_times
 
         except Exception as e:
@@ -5053,7 +5072,7 @@ api.add_resource(UpdateAccessToken,
 api.add_resource(CustomerToken, "/api/v2/customerToken/<string:customer_uid>")
 api.add_resource(
     AvailableAppointments,
-    "/api/v2/availableAppointments/<string:date_value>/<string:duration_str>",
+    "/api/v2/availableAppointments/<string:date_value>/<string:duration_str>/<string:appointment_type>",
 )
 api.add_resource(AddContact, "/api/v2/addContact")
 api.add_resource(purchaseDetails, "/api/v2/purchases")
