@@ -122,12 +122,16 @@ utc = pytz.utc
 # def getToday(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d")
 # def getNow(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d %H:%M:%S")
 
-# # These statment return Day and Time in Local Time - Not sure about PST vs PDT
+# # These functions return Day and Time in Pacific Time for consistent business logic
 def getToday():
-    return datetime.strftime(datetime.now(), "%Y-%m-%d")
+    import pytz
+    pacific = pytz.timezone('US/Pacific')
+    return datetime.now(pacific).strftime("%Y-%m-%d")
 
 def getNow():
-    return datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
+    import pytz
+    pacific = pytz.timezone('US/Pacific')
+    return datetime.now(pacific).strftime("%Y-%m-%d %H:%M:%S")
 
 
 # Not sure what these statments do
@@ -997,9 +1001,13 @@ class CreateAppointment(Resource):
             from datetime import datetime, timedelta
             try:
                 appointment_datetime = datetime.strptime(f"{datevalue} {timevalue}", "%Y-%m-%d %H:%M")
-                current_datetime = datetime.now()
                 
-                # Get tomorrow's date (next day at 00:00:00)
+                # Use Pacific Time for date comparison to match business logic
+                import pytz
+                pacific = pytz.timezone('US/Pacific')
+                current_datetime = datetime.now(pacific)
+                
+                # Get tomorrow's date (next day at 00:00:00) in Pacific Time
                 tomorrow = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
                 
                 print(f"Appointment datetime: {appointment_datetime}")
@@ -1540,14 +1548,20 @@ class AvailableAppointments(Resource):
             
             # VALIDATE APPOINTMENT DATE - PREVENT BOOKING TODAY OR IN THE PAST
             from datetime import datetime
+            import pytz
             try:
                 appointment_date = datetime.strptime(date_value, '%Y-%m-%d').date()
-                current_date = datetime.now().date()
+                
+                # Use Pacific Time for date comparison to match business logic
+                pacific = pytz.timezone('US/Pacific')
+                current_datetime_pacific = datetime.now(pacific)
+                current_date_pacific = current_datetime_pacific.date()
                 
                 print(f"Appointment date: {appointment_date}")
-                print(f"Current date: {current_date}")
+                print(f"Current date (Pacific): {current_date_pacific}")
+                print(f"Current datetime (Pacific): {current_datetime_pacific}")
                 
-                if appointment_date <= current_date:
+                if appointment_date <= current_date_pacific:
                     print("ERROR: Cannot show availability for today or past dates")
                     return {
                         "message": "No available time slots found for the selected date.",
@@ -2283,10 +2297,16 @@ def get_freebusy_data(customer_uid, start_date, end_date):
             from datetime import datetime
             try:
                 access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
-                social_timestamp = datetime.strptime(
+                # social_timestamp is stored in Pacific Time, convert to UTC for comparison
+                import pytz
+                pacific = pytz.timezone('US/Pacific')
+                social_timestamp_pacific = datetime.strptime(
                     items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
                 )
-                current_timestamp = datetime.strptime(getNow(), "%Y-%m-%d %H:%M:%S")
+                social_timestamp = pacific.localize(social_timestamp_pacific).astimezone(pytz.UTC)
+                
+                # Use UTC for token expiry calculation since Google tokens expire in UTC
+                current_timestamp = datetime.utcnow()
                 diff = (current_timestamp - social_timestamp).total_seconds() / 60
                 
                 print(f"FreeBusy - Token age: {diff} minutes, expires in: {access_issue_min} minutes")
@@ -2661,10 +2681,16 @@ def create_google_calendar_event(customer_uid, appointment_details):
         if not needs_refresh:
             from datetime import datetime
             access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
-            social_timestamp = datetime.strptime(
+            # social_timestamp is stored in Pacific Time, convert to UTC for comparison
+            import pytz
+            pacific = pytz.timezone('US/Pacific')
+            social_timestamp_pacific = datetime.strptime(
                 items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
             )
-            current_timestamp = datetime.strptime(getNow(), "%Y-%m-%d %H:%M:%S")
+            social_timestamp = pacific.localize(social_timestamp_pacific).astimezone(pytz.UTC)
+            
+            # Use UTC for token expiry calculation since Google tokens expire in UTC
+            current_timestamp = datetime.utcnow()
             diff = (current_timestamp - social_timestamp).total_seconds() / 60
             
             if int(diff) > int(access_issue_min):
@@ -2744,7 +2770,7 @@ def create_google_calendar_event(customer_uid, appointment_details):
         appointment_time = appointment_details['time']
         duration = appointment_details['duration']
         
-        # Create datetime objects
+        # Create datetime objects in Pacific Time
         start_datetime = datetime.strptime(f"{appointment_date} {appointment_time}", "%Y-%m-%d %H:%M")
         start_datetime_pacific = pacific.localize(start_datetime)
         
@@ -2956,10 +2982,16 @@ class GoogleFreeBusy(Resource):
                 # Check if existing tokens are still valid
                 try:
                     access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
-                    social_timestamp = datetime.strptime(
+                    # social_timestamp is stored in Pacific Time, convert to UTC for comparison
+                    import pytz
+                    pacific = pytz.timezone('US/Pacific')
+                    social_timestamp_pacific = datetime.strptime(
                         items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
                     )
-                    current_timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                    social_timestamp = pacific.localize(social_timestamp_pacific).astimezone(pytz.UTC)
+                    
+                    # Use UTC for token expiry calculation since Google tokens expire in UTC
+                    current_timestamp = datetime.utcnow()
                     diff = (current_timestamp - social_timestamp).total_seconds() / 60
                     
                     print(f"GoogleFreeBusy - Token age: {diff} minutes, expires in: {access_issue_min} minutes")
