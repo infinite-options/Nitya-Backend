@@ -1634,9 +1634,9 @@ class AvailableAppointments(Resource):
                 FROM (
                     SELECT 
                         ts.time_slot_uid,
-                        DATE_FORMAT(CAST(ts.begin_datetime AS TIME), '%h:%i %p') AS available_time,
+                        DATE_FORMAT(CAST(ts.begin_datetime AS TIME), '%H:%i') AS available_time,
                         DATE_FORMAT(
-                            DATE_ADD(CAST(ts.begin_datetime AS TIME), INTERVAL TIME_TO_SEC('{}') SECOND), '%h:%i %p'  -- Python placeholder
+                            DATE_ADD(CAST(ts.begin_datetime AS TIME), INTERVAL TIME_TO_SEC('{}') SECOND), '%H:%i'  -- Python placeholder
                             -- DATE_ADD(CAST(ts.begin_datetime AS TIME), INTERVAL TIME_TO_SEC(@duration_str) SECOND), '%h:%i %p'  -- MySQL version
                         ) AS end_time,
                         d.hoursMode,
@@ -2598,9 +2598,9 @@ def is_time_slot_busy_optimized(time_slot_start, time_slot_end, appointment_busy
         
         pacific = pytz.timezone('US/Pacific')
         
-        # Parse time slot times (assuming they're in format like "09:00 AM")
-        time_slot_start_dt = datetime.strptime(time_slot_start, '%I:%M %p').time()
-        time_slot_end_dt = datetime.strptime(time_slot_end, '%I:%M %p').time()
+        # Parse time slot times (assuming they're in format like "09:00")
+        time_slot_start_dt = datetime.strptime(time_slot_start, '%H:%M').time()
+        time_slot_end_dt = datetime.strptime(time_slot_end, '%H:%M').time()
         
         # Use the appointment date for the time slot
         appointment_date_obj = datetime.strptime(appointment_date, '%Y-%m-%d').date()
@@ -2617,10 +2617,10 @@ def is_time_slot_busy_optimized(time_slot_start, time_slot_end, appointment_busy
             
             # Check if time slot overlaps with busy period
             if (time_slot_start_full < busy_end_pacific and time_slot_end_full > busy_start_pacific):
-                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %H:%M')}-{busy_end_pacific.strftime('%H:%M')}")
                 return True
             else:
-                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %H:%M')}-{busy_end_pacific.strftime('%H:%M')}")
         
         return False
         
@@ -2838,9 +2838,9 @@ def is_time_slot_busy(time_slot_start, time_slot_end, freebusy_data, appointment
         
         pacific = pytz.timezone('US/Pacific')
         
-        # Parse time slot times (assuming they're in format like "09:00 AM")
-        time_slot_start_dt = datetime.strptime(time_slot_start, '%I:%M %p').time()
-        time_slot_end_dt = datetime.strptime(time_slot_end, '%I:%M %p').time()
+        # Parse time slot times (assuming they're in format like "09:00")
+        time_slot_start_dt = datetime.strptime(time_slot_start, '%H:%M').time()
+        time_slot_end_dt = datetime.strptime(time_slot_end, '%H:%M').time()
         
         # Use the appointment date for the time slot (not today's date)
         appointment_date_obj = datetime.strptime(appointment_date, '%Y-%m-%d').date()
@@ -2880,10 +2880,10 @@ def is_time_slot_busy(time_slot_start, time_slot_end, freebusy_data, appointment
             
             # Check if time slot overlaps with busy period
             if (time_slot_start_full < busy_end_pacific and time_slot_end_full > busy_start_pacific):
-                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} conflicts with busy period {busy_start_pacific.strftime('%Y-%m-%d %H:%M')}-{busy_end_pacific.strftime('%H:%M')}")
                 return True
             else:
-                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %I:%M %p')}-{busy_end_pacific.strftime('%I:%M %p')}")
+                print(f"Time slot {time_slot_start}-{time_slot_end} on {appointment_date} does NOT conflict with busy period {busy_start_pacific.strftime('%Y-%m-%d %H:%M')}-{busy_end_pacific.strftime('%H:%M')}")
         
         return False
         
