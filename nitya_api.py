@@ -124,10 +124,16 @@ utc = pytz.utc
 
 # # These statment return Day and Time in Local Time - Not sure about PST vs PDT
 def getToday():
-    return datetime.strftime(datetime.now(), "%Y-%m-%d")
+    """Get current date in Pacific Time"""
+    import pytz
+    pacific = pytz.timezone('US/Pacific')
+    return datetime.strftime(datetime.now(pacific), "%Y-%m-%d")
 
 def getNow():
-    return datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
+    """Get current datetime in Pacific Time"""
+    import pytz
+    pacific = pytz.timezone('US/Pacific')
+    return datetime.strftime(datetime.now(pacific), "%Y-%m-%d %H:%M:%S")
 
 
 # Not sure what these statments do
@@ -995,9 +1001,12 @@ class CreateAppointment(Resource):
             
             # VALIDATE APPOINTMENT DATE - ONLY ALLOW NEXT DAY OR LATER
             from datetime import datetime, timedelta
+            import pytz
             try:
                 appointment_datetime = datetime.strptime(f"{datevalue} {timevalue}", "%Y-%m-%d %H:%M")
-                current_datetime = datetime.now()
+                # Use Pacific Time for consistent date comparison
+                pacific = pytz.timezone('US/Pacific')
+                current_datetime = datetime.now(pacific)
                 
                 # Get tomorrow's date (next day at 00:00:00)
                 tomorrow = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
@@ -1540,9 +1549,12 @@ class AvailableAppointments(Resource):
             
             # VALIDATE APPOINTMENT DATE - PREVENT BOOKING TODAY OR IN THE PAST
             from datetime import datetime
+            import pytz
             try:
                 appointment_date = datetime.strptime(date_value, '%Y-%m-%d').date()
-                current_date = datetime.now().date()
+                # Use Pacific Time for consistent date comparison
+                pacific = pytz.timezone('US/Pacific')
+                current_date = datetime.now(pacific).date()
                 
                 print(f"Appointment date: {appointment_date}")
                 print(f"Current date: {current_date}")
@@ -2158,9 +2170,13 @@ class GooglecalendarEvents(Resource):
                     items["result"][0]["access_expires_in"]) / 60
                 print("in else", access_issue_min)
                 print("in else", items["result"][0]["social_timestamp"])
-                social_timestamp = datetime.strptime(
+                # Convert social_timestamp from Pacific to UTC for comparison
+                import pytz
+                pacific = pytz.timezone('US/Pacific')
+                social_timestamp_naive = datetime.strptime(
                     items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
                 )
+                social_timestamp = pacific.localize(social_timestamp_naive).astimezone(pytz.UTC)
                 print("in else", social_timestamp)
 
                 timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
@@ -2283,10 +2299,15 @@ def get_freebusy_data(customer_uid, start_date, end_date):
             from datetime import datetime
             try:
                 access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
-                social_timestamp = datetime.strptime(
+                # Convert social_timestamp from Pacific to UTC for comparison
+                import pytz
+                pacific = pytz.timezone('US/Pacific')
+                social_timestamp_naive = datetime.strptime(
                     items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
                 )
-                current_timestamp = datetime.strptime(getNow(), "%Y-%m-%d %H:%M:%S")
+                social_timestamp = pacific.localize(social_timestamp_naive).astimezone(pytz.UTC)
+                # Google tokens expire in UTC, so compare with UTC time
+                current_timestamp = datetime.utcnow()
                 diff = (current_timestamp - social_timestamp).total_seconds() / 60
                 
                 print(f"FreeBusy - Token age: {diff} minutes, expires in: {access_issue_min} minutes")
@@ -2912,7 +2933,9 @@ class GoogleFreeBusy(Resource):
                     end_date = end + 'T23:59:59Z'
                 elif start.isdigit() and end.isdigit():
                     # Day numbers: 9, 12 - convert to current month
-                    current_date = datetime.now()
+                    import pytz
+                    pacific = pytz.timezone('US/Pacific')
+                    current_date = datetime.now(pacific)
                     start_day = int(start)
                     end_day = int(end)
                     start_date = current_date.replace(day=start_day).strftime('%Y-%m-%dT00:00:00Z')
