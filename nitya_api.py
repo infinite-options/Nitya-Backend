@@ -122,16 +122,67 @@ utc = pytz.utc
 # def getToday(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d")
 # def getNow(): return datetime.strftime(datetime.now(utc), "%Y-%m-%d %H:%M:%S")
 
-# # These functions return Day and Time in Pacific Time for consistent business logic
+# =============================================================================
+# TIMEZONE MANAGEMENT SYSTEM
+# =============================================================================
+# Centralized timezone handling for consistent behavior across all environments
+# Business Logic: Always Pacific Time (timezone-aware)
+# External APIs: Always UTC (timezone-aware)
+
+import pytz
+from datetime import datetime
+
+# Define timezones once
+PACIFIC_TZ = pytz.timezone('US/Pacific')
+UTC_TZ = pytz.UTC
+
+def get_pacific_now():
+    """Get current datetime in Pacific Time (timezone-aware)"""
+    return datetime.now(PACIFIC_TZ)
+
+def get_utc_now():
+    """Get current datetime in UTC (timezone-aware)"""
+    return datetime.utcnow().replace(tzinfo=UTC_TZ)
+
+def get_pacific_today():
+    """Get current date in Pacific Time as string"""
+    return get_pacific_now().strftime("%Y-%m-%d")
+
+def get_pacific_now_string():
+    """Get current datetime in Pacific Time as string"""
+    return get_pacific_now().strftime("%Y-%m-%d %H:%M:%S")
+
+def parse_appointment_datetime(date_str, time_str):
+    """Parse appointment datetime and return Pacific Time (timezone-aware)"""
+    naive_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    return PACIFIC_TZ.localize(naive_dt)
+
+def parse_utc_datetime(utc_string):
+    """Parse UTC datetime string and return UTC (timezone-aware)"""
+    if utc_string.endswith('Z'):
+        utc_string = utc_string.replace('Z', '+00:00')
+    return datetime.fromisoformat(utc_string)
+
+def convert_utc_to_pacific(utc_dt):
+    """Convert UTC datetime to Pacific Time"""
+    if utc_dt.tzinfo is None:
+        utc_dt = UTC_TZ.localize(utc_dt)
+    return utc_dt.astimezone(PACIFIC_TZ)
+
+def convert_pacific_to_utc(pacific_dt):
+    """Convert Pacific Time datetime to UTC"""
+    if pacific_dt.tzinfo is None:
+        pacific_dt = PACIFIC_TZ.localize(pacific_dt)
+    return pacific_dt.astimezone(UTC_TZ)
+
+# Legacy functions for backward compatibility
 def getToday():
-    import pytz
-    pacific = pytz.timezone('US/Pacific')
-    return datetime.now(pacific).strftime("%Y-%m-%d")
+    """Legacy function - use get_pacific_today() instead"""
+    return get_pacific_today()
 
 def getNow():
-    import pytz
-    pacific = pytz.timezone('US/Pacific')
-    return datetime.now(pacific).strftime("%Y-%m-%d %H:%M:%S")
+    """Legacy function - use get_pacific_now_string() instead"""
+    return get_pacific_now_string()
 
 
 # Not sure what these statments do
@@ -998,14 +1049,13 @@ class CreateAppointment(Resource):
             print("age", age)
             
             # VALIDATE APPOINTMENT DATE - ONLY ALLOW NEXT DAY OR LATER
-            from datetime import datetime, timedelta
+            from datetime import timedelta
             try:
-                appointment_datetime = datetime.strptime(f"{datevalue} {timevalue}", "%Y-%m-%d %H:%M")
+                # Parse appointment datetime in Pacific Time (timezone-aware)
+                appointment_datetime = parse_appointment_datetime(datevalue, timevalue)
                 
-                # Use Pacific Time for date comparison to match business logic
-                import pytz
-                pacific = pytz.timezone('US/Pacific')
-                current_datetime = datetime.now(pacific)
+                # Get current datetime in Pacific Time (timezone-aware)
+                current_datetime = get_pacific_now()
                 
                 # Get tomorrow's date (next day at 00:00:00) in Pacific Time
                 tomorrow = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
@@ -1548,13 +1598,11 @@ class AvailableAppointments(Resource):
             
             # VALIDATE APPOINTMENT DATE - PREVENT BOOKING TODAY OR IN THE PAST
             from datetime import datetime
-            import pytz
             try:
                 appointment_date = datetime.strptime(date_value, '%Y-%m-%d').date()
                 
                 # Use Pacific Time for date comparison to match business logic
-                pacific = pytz.timezone('US/Pacific')
-                current_datetime_pacific = datetime.now(pacific)
+                current_datetime_pacific = get_pacific_now()
                 current_date_pacific = current_datetime_pacific.date()
                 
                 print(f"Appointment date: {appointment_date}")
@@ -1814,20 +1862,15 @@ class AvailableAppointments(Resource):
                 appointment_date = datetime.strptime(date_value, '%Y-%m-%d')
                 
                 # Set date range for FreeBusy check - cover full Pacific Time day
-                # Pacific Time can be UTC-8 (standard) or UTC-7 (daylight)
-                # To be safe, query from 16 hours before to 16 hours after the date
                 from datetime import timedelta
-                import pytz
-                
-                pacific = pytz.timezone('US/Pacific')
                 
                 # Create Pacific Time start and end of day
-                pacific_start = pacific.localize(datetime.combine(appointment_date, datetime.min.time()))
-                pacific_end = pacific.localize(datetime.combine(appointment_date, datetime.max.time().replace(microsecond=0)))
+                pacific_start = PACIFIC_TZ.localize(datetime.combine(appointment_date, datetime.min.time()))
+                pacific_end = PACIFIC_TZ.localize(datetime.combine(appointment_date, datetime.max.time().replace(microsecond=0)))
                 
                 # Convert to UTC for FreeBusy API
-                freebusy_start = pacific_start.astimezone(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-                freebusy_end = pacific_end.astimezone(pytz.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+                freebusy_start = convert_pacific_to_utc(pacific_start).strftime('%Y-%m-%dT%H:%M:%SZ')
+                freebusy_end = convert_pacific_to_utc(pacific_end).strftime('%Y-%m-%dT%H:%M:%SZ')
                 
                 print(f"FreeBusy check for specific date:")
                 print(f"  Appointment date: {appointment_date.strftime('%Y-%m-%d')}")
@@ -1846,11 +1889,11 @@ class AvailableAppointments(Resource):
                         if 'busy' in calendar_data:
                             for busy_period in calendar_data['busy']:
                                 if 'start' in busy_period and 'end' in busy_period:
-                                    busy_start = datetime.fromisoformat(busy_period['start'].replace('Z', '+00:00'))
-                                    busy_end = datetime.fromisoformat(busy_period['end'].replace('Z', '+00:00'))
+                                    busy_start = parse_utc_datetime(busy_period['start'])
+                                    busy_end = parse_utc_datetime(busy_period['end'])
                                     
-                                    busy_start_pacific = busy_start.astimezone(pacific)
-                                    busy_end_pacific = busy_end.astimezone(pacific)
+                                    busy_start_pacific = convert_utc_to_pacific(busy_start)
+                                    busy_end_pacific = convert_utc_to_pacific(busy_end)
                                     
                                     # Only include busy periods that fall on the appointment date
                                     if busy_start_pacific.date() == appointment_date.date():
@@ -1861,10 +1904,17 @@ class AvailableAppointments(Resource):
                     
                     print(f"Found {len(appointment_busy_periods)} busy periods for {date_value}")
                     
+                    # Debug: Print all busy periods found
+                    for i, busy_period in enumerate(appointment_busy_periods):
+                        print(f"  Busy period {i+1}: {busy_period['start'].strftime('%Y-%m-%d %I:%M %p %Z')} to {busy_period['end'].strftime('%I:%M %p %Z')}")
+                    
                     # Update availability_status based on Google Calendar
                     blocked_count = 0
+                    print(f"Checking {len(available_times['result'])} time slots against {len(appointment_busy_periods)} busy periods")
+                    
                     for time_slot in available_times["result"]:
                         if "available_time" in time_slot and "end_time" in time_slot:
+                            print(f"\n--- Checking time slot: {time_slot['available_time']} to {time_slot['end_time']} ---")
                             is_busy = is_time_slot_busy_optimized(
                                 time_slot["available_time"], 
                                 time_slot["end_time"], 
@@ -1877,7 +1927,11 @@ class AvailableAppointments(Resource):
                                 if time_slot.get("availability_status") == "OK":
                                     time_slot["availability_status"] = "BLOCKED_GOOGLE_CALENDAR"
                                     blocked_count += 1
-                                    print(f"Updated {time_slot['available_time']} to BLOCKED_GOOGLE_CALENDAR")
+                                    print(f"✅ BLOCKED: {time_slot['available_time']} to {time_slot['end_time']} - conflicts with Google Calendar")
+                                else:
+                                    print(f"⚠️  Already blocked: {time_slot['available_time']} to {time_slot['end_time']} - status: {time_slot.get('availability_status')}")
+                            else:
+                                print(f"✅ AVAILABLE: {time_slot['available_time']} to {time_slot['end_time']} - no Google Calendar conflicts")
                     
                     print(f"=== INTEGRATION SUMMARY ===")
                     print(f"Total time slots checked: {len(available_times['result'])}")
@@ -2298,15 +2352,13 @@ def get_freebusy_data(customer_uid, start_date, end_date):
             try:
                 access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
                 # social_timestamp is stored in Pacific Time, convert to UTC for comparison
-                import pytz
-                pacific = pytz.timezone('US/Pacific')
-                social_timestamp_pacific = datetime.strptime(
+                social_timestamp_pacific = PACIFIC_TZ.localize(datetime.strptime(
                     items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
-                )
-                social_timestamp = pacific.localize(social_timestamp_pacific).astimezone(pytz.UTC)
+                ))
+                social_timestamp = convert_pacific_to_utc(social_timestamp_pacific)
                 
                 # Use UTC for token expiry calculation since Google tokens expire in UTC
-                current_timestamp = datetime.utcnow()
+                current_timestamp = get_utc_now()
                 diff = (current_timestamp - social_timestamp).total_seconds() / 60
                 
                 print(f"FreeBusy - Token age: {diff} minutes, expires in: {access_issue_min} minutes")
@@ -2682,15 +2734,13 @@ def create_google_calendar_event(customer_uid, appointment_details):
             from datetime import datetime
             access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
             # social_timestamp is stored in Pacific Time, convert to UTC for comparison
-            import pytz
-            pacific = pytz.timezone('US/Pacific')
-            social_timestamp_pacific = datetime.strptime(
+            social_timestamp_pacific = PACIFIC_TZ.localize(datetime.strptime(
                 items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
-            )
-            social_timestamp = pacific.localize(social_timestamp_pacific).astimezone(pytz.UTC)
+            ))
+            social_timestamp = convert_pacific_to_utc(social_timestamp_pacific)
             
             # Use UTC for token expiry calculation since Google tokens expire in UTC
-            current_timestamp = datetime.utcnow()
+            current_timestamp = get_utc_now()
             diff = (current_timestamp - social_timestamp).total_seconds() / 60
             
             if int(diff) > int(access_issue_min):
@@ -2983,15 +3033,13 @@ class GoogleFreeBusy(Resource):
                 try:
                     access_issue_min = int(items["result"][0]["access_expires_in"]) / 60
                     # social_timestamp is stored in Pacific Time, convert to UTC for comparison
-                    import pytz
-                    pacific = pytz.timezone('US/Pacific')
-                    social_timestamp_pacific = datetime.strptime(
+                    social_timestamp_pacific = PACIFIC_TZ.localize(datetime.strptime(
                         items["result"][0]["social_timestamp"], "%Y-%m-%d %H:%M:%S"
-                    )
-                    social_timestamp = pacific.localize(social_timestamp_pacific).astimezone(pytz.UTC)
+                    ))
+                    social_timestamp = convert_pacific_to_utc(social_timestamp_pacific)
                     
                     # Use UTC for token expiry calculation since Google tokens expire in UTC
-                    current_timestamp = datetime.utcnow()
+                    current_timestamp = get_utc_now()
                     diff = (current_timestamp - social_timestamp).total_seconds() / 60
                     
                     print(f"GoogleFreeBusy - Token age: {diff} minutes, expires in: {access_issue_min} minutes")
@@ -3174,15 +3222,15 @@ class GoogleFreeBusy(Resource):
                 "items": [{"id": "primary"}]  # or use customer_email for specific calendar
             }
             
-            # print(f"Making FreeBusy request to: {url}")
-            # print(f"Request body: {body}")
+            print(f"Making FreeBusy request to: {url}")
+            print(f"Request body: {body}")
             
             response = requests.post(url, headers=headers, data=json.dumps(body))
-            # print(f"Response status: {response.status_code}")
+            print(f"Response status: {response.status_code}")
             
             if response.status_code == 200:
                 freebusy_data = response.json()
-                # print(f"FreeBusy response (UTC): {freebusy_data}")
+                print(f"FreeBusy response (UTC): {freebusy_data}")
                 
                 # Convert UTC times to Pacific Time
                 pacific_data = convert_to_pacific_time(freebusy_data)
