@@ -1003,9 +1003,12 @@ class CreateAppointment(Resource):
             from datetime import datetime, timedelta
             import pytz
             try:
-                appointment_datetime = datetime.strptime(f"{datevalue} {timevalue}", "%Y-%m-%d %H:%M")
-                # Use Pacific Time for consistent date comparison
+                # Parse appointment datetime and make it timezone-aware in Pacific Time
                 pacific = pytz.timezone('US/Pacific')
+                appointment_datetime_naive = datetime.strptime(f"{datevalue} {timevalue}", "%Y-%m-%d %H:%M")
+                appointment_datetime = pacific.localize(appointment_datetime_naive)
+                
+                # Use Pacific Time for consistent date comparison
                 current_datetime = datetime.now(pacific)
                 
                 # Get tomorrow's date (next day at 00:00:00)
