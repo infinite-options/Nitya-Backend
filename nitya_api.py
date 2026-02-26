@@ -837,18 +837,8 @@ class UploadDocument(Resource):
                 # print('os.environ.get("SUPPORT_EMAIL")', os.environ.get("SUPPORT_EMAIL"))
                 # print('response', response)
                 
-                msg = Message(
-                "Here is the waiver",
-                sender="support@nityaayurveda.com",
-                # recipients=[email],
-                recipients=[email,
-                            "lmarathay@gmail.com",
-                            "pmarathay@gmail.com"],
-                )
-
                 name = first_name + " " + last_name
-
-                msg.body = (
+                body = (
                     "Hello " + str(name) + "\n"
                     "\n"
                     "Here is the waiver form you filled out and submitted.  Click on the link below to see the form.\n"
@@ -858,8 +848,7 @@ class UploadDocument(Resource):
                     "\n" +
                     str(filename)
                 )
-
-                mail.send(msg)
+                sendEmail2([email, "lmarathay@gmail.com", "pmarathay@gmail.com"], "Here is the waiver", body)
 
                 response["message"] = "email sent"
 
@@ -1168,10 +1157,28 @@ class CreateAppointment(Resource):
             response["message"] = "Appointments Post successful"
             response["result"] = items
             print('response', response)
-            SendEmail.get(self, name, age, gender,
-                          mode, str(notes), email, phone_no, message)
-            print("Email sent")
-            
+            # First attempt commented out to test sendEmail2 only (SendEmail.get was failing with "sender rejected")
+            # try:
+            #     SendEmail.get(self, name, age, gender,
+            #                   mode, str(notes), email, phone_no, message)
+            #     print("Email sent via SendEmail.get")
+            #     response["email_sent"] = True
+            #     response["email_method"] = "SendEmail.get"
+            # except Exception as e:
+            #     print(f"SendEmail.get failed ({e}), trying sendEmail2 fallback...")
+            try:
+                send_appointment_email_via_sendEmail2(
+                    name, age, gender, mode, str(notes), email, phone_no, message
+                )
+                print("Email sent via sendEmail2")
+                response["email_sent"] = True
+                response["email_method"] = "sendEmail2"
+            except Exception as e2:
+                print(f"sendEmail2 failed: {e2}")
+                response["email_sent"] = False
+                response["email_error"] = "Confirmation email could not be sent; appointment was saved. Please contact the clinic if you need confirmation."
+                response["email_method"] = "none"
+
             # Create Google Calendar event for practitioner
             try:
                 print("=== CREATING GOOGLE CALENDAR EVENT ===")
@@ -3195,6 +3202,12 @@ class GoogleFreeBusy(Resource):
 
 def sendEmail2(recipient, subject, body):
     print('in sendemail2')
+    # Flask-Mail Message.recipients must be a list; if passed a string it iterates per-character.
+    if isinstance(recipient, str):
+        recipient = [recipient]
+    # print(recipient)
+    # print(subject)
+    # print(body)
     with app.app_context():
         msg = Message(
             sender="support@nityaayurveda.com",
@@ -3202,12 +3215,66 @@ def sendEmail2(recipient, subject, body):
             subject=subject,
             body=body
         )
-        print(msg)
         mail.send(msg)
         print('after mail send')
 
 
 app.sendEmail2 = sendEmail2
+
+
+def send_appointment_email_via_sendEmail2(name, age, gender, mode, notes, email, phone, subject_str):
+    """Send the same two appointment emails (client + practitioner) using sendEmail2 (app_context).
+    subject_str is the message string: 'TreatmentTitle,price,date,time' (e.g. 'Abhyanga,175,2026-02-26,08:00').
+    """
+    subject = subject_str.split(',')
+    month_num = subject[2][5:7]
+    month_name = datetime.strptime(month_num, "%m").strftime("%B")
+    day = datetime.strptime(subject[2], "%Y-%m-%d").strftime("%A")
+    time = datetime.strptime(subject[3], "%H:%M").strftime("%I:%M %p")
+    phone_fmt = phone[0:3] + "-" + phone[3:6] + "-" + phone[6:]
+    if mode == 'Online':
+        location = 'Online - We will send you a Zoom link via email, 5 minutes before the appointment begins'
+    else:
+        location = '1610 Blossom Hill Rd. Suite 1, San Jose, CA 95124.'
+
+    client_body = (
+        "Hello " + str(name) + "," + "\n\n"
+        "Thank you for making your appointment with us. \n"
+        "Here are your appointment details: \n"
+        "Date: " + str(day) + ", " + str(month_name) + " " + str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
+        "Time: " + str(time) + "\n"
+        "Location: " + str(location) + "\n\n"
+        "If we need to contact you, we will use the following phone number and email: \n"
+        "Name: " + str(name) + "\n"
+        "Phone: " + str(phone_fmt) + "\n"
+        "Email: " + str(email) + "\n\n"
+        "Package purchased: " + str(subject[0]) + "\n"
+        "Total amount paid: " + str(subject[1]) + "\n\n"
+        "If you have any questions please call or text: \n"
+        "Leena Marathay at 408-471-7004, \n"
+        "Email Leena@nityaayurveda.com \n\n"
+        "Thank you - Nitya Ayurveda\n\n"
+    )
+    sendEmail2([email, "pmarathay@gmail.com"], "Thanks for booking an Appointment!", client_body)
+
+    practitioner_body = (
+        "Hello Leena\n\n"
+        "Congratulations someone booked another appointment. \n"
+        "Here are the appointment details: \n"
+        "Date: " + str(day) + ", " + str(month_name) + " " + str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
+        "Time: " + str(time) + "\n"
+        "Location: " + str(location) + "\n\n"
+        "Name: " + str(name) + "\n"
+        "Phone: " + str(phone_fmt) + "\n"
+        "Email: " + str(email) + "\n"
+        "Age: " + str(age) + "\n"
+        "Gender: " + str(gender) + "\n\n"
+        "Package purchased: " + str(subject[0]) + "\n"
+        "Total amount paid: " + str(subject[1]) + "\n"
+        "Mode: " + str(mode) + "\n\n"
+        "Notes: " + str(notes) + "\n"
+    )
+    sendEmail2(["Lmarathay@gmail.com", "pmarathay@gmail.com"], "New appointment booked!", practitioner_body)
 
 
 class SendEmailCRON_CLASS(Resource):
@@ -3220,6 +3287,24 @@ class SendEmailCRON_CLASS(Resource):
             subject = "Daily Email Check!"
             body = (
                 "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong")
+            # mail.send(msg)
+            sendEmail2(recipient, subject, body)
+
+            return "Email Sent", 200
+
+        except:
+            raise BadRequest("Request failed, please try again later.")
+        finally:
+            disconnect(conn)
+
+    def post(self, recipient, subject, body):
+        print("In Send EMail CRON POST: ", recipient, subject, body)
+        try:
+            conn = connect()
+            # recipient = ["pmarathay@gmail.com"]
+            # subject = "Daily Email Check!"
+            # body = (
+            #     "Nitya Ayurveda Email Send is working. If you don't receive this email daily, something is wrong")
             # mail.send(msg)
             sendEmail2(recipient, subject, body)
 
@@ -3284,13 +3369,7 @@ class SendEmailPaymentIntent(Resource):
             jsonObject_sent = data['jsonObject_sent']
             print("first email sent")
             print(name, email, phone, message)
-            # Send email to Host
-            msg = Message(
-                "Payment Intent Error",
-                sender="support@nityaayurveda.com",
-                recipients=["pmarathay@gmail.com"],
-            )
-            msg.body = (
+            body = (
                 "Hi !\n\n"
                 "Payment intent failed For the below customer \n"
                 "Here are the particulars:\n"
@@ -3303,8 +3382,7 @@ class SendEmailPaymentIntent(Resource):
                 "JSON Object we sent:" + jsonObject_sent + "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            # print('msg-bd----', msg.body)
-            mail.send(msg)
+            sendEmail2(["pmarathay@gmail.com"], "Payment Intent Error", body)
             print('after mail send')
 
             return 'Email Sent', 200
@@ -3327,13 +3405,7 @@ class SendEmailNewGet(Resource):
 
             print("first email sent")
             print(name, email, phone, subject, message)
-            # Send email to Host
-            msg = Message(
-                "New Email from Website!",
-                sender="support@nityaayurveda.com",
-                recipients=["Lmarathay@gmail.com", "pmarathay@gmail.com"],
-            )
-            msg.body = (
+            host_body = (
                 "Hi !\n\n"
                 "You just got an email from your website! \n"
                 "Here are the particulars:\n"
@@ -3344,20 +3416,12 @@ class SendEmailNewGet(Resource):
                 "Message:   " + message + "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-
-            # print('msg-bd----', msg.body)
-            mail.send(msg)
+            sendEmail2(["Lmarathay@gmail.com", "pmarathay@gmail.com"], "New message from website", host_body)
             print('after mail send')
 
-            # Send email to Sender
-            msg2 = Message(
-                "New Email from Nitya Ayurveda!",
-                sender="support@nityaayurveda.com",
-                recipients=[email],
-            )
-            msg2.body = (
+            sender_body = (
                 "Hi !\n\n"
-                "Thanks for your email! \n"
+                "Thanks for your note! \n"
                 "Here are the particulars we sent:\n"
                 "Name:      " + name + "\n"
                 "Email:     " + email + "\n"
@@ -3366,8 +3430,7 @@ class SendEmailNewGet(Resource):
                 "Message:   " + message + "\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            # print('msg-bd----', msg.body)
-            mail.send(msg2)
+            sendEmail2([email], "We received your message - Nitya Ayurveda", sender_body)
             print('after mail send')
 
             return 'Email Sent', 200
@@ -3383,127 +3446,13 @@ class SendEmail(Resource):
         print("In SendEmail")
 
     def get(self, name, age, gender, mode, notes, email, phone, subject):
-        # print("\nIn Send EMail get")
-        # print(name, age, gender, mode, notes, email, phone, subject)
-        response = {}
+        """Send appointment confirmation emails via sendEmail2 (single code path for all mail)."""
         try:
             conn = connect()
-            subject = subject.split(',')
-            # print(subject)
-            # print(subject[2])
-            # print(subject[2][5:7])
-
-            month_num = subject[2][5:7]
-            # print(month_num)
-            datetime_object1 = datetime.strptime(month_num, "%m")
-            month_name = datetime_object1.strftime("%B")
-            # print(month_name)
-
-            day_num = subject[2][8:10]
-            # print(day_num)
-            # datetime_object2 = datetime.strptime(day_num, "%d")
-            datetime_object2 = datetime.strptime(subject[2], "%Y-%m-%d")
-            # print(datetime_object2)
-            day = datetime_object2.strftime("%A")
-            # print(day)
-
-            # print(subject[3])
-            # time_num = subject[2][0:4]
-            # print(time_num)
-            datetime_object3 = datetime.strptime(subject[3], "%H:%M")
-            time = datetime_object3.strftime("%I:%M %p")
-            # print(time)
-            phone = phone[0:3] + "-" + phone[3:6] + "-" + phone[6:]
-            # print(phone)
-
-            age = age
-            gender = gender
-            mode = mode
-            notes = notes
-
-            # print("Email Info: ", age, gender, time)
-
-            if mode == 'Online':
-                location = 'Online - We will send you a Zoom link via email, 5 minutes before the appointment begins'
-            else:
-                location = '1610 Blossom Hill Rd. Suite 1, San Jose, CA 95124.'
-            # Send email to Client
-            msg = Message(
-                "Thanks for your Email!",
-                sender="support@nityaayurveda.com",
-                # recipients=[email],
-                recipients=[email,
-                            "pmarathay@gmail.com"],
-            )
-            # client email
-            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
-            msg.body = (
-                "Hello " + str(name) + "," + "\n"
-                "\n"
-                "Thank you for making your appointment with us. \n"
-                "Here are your appointment details: \n"
-                "Date: " +
-                str(day) + ", " + str(month_name) + " " +
-                str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
-                "Time: " + str(time) + "\n"
-                "Location: " + str(location) + "\n"
-                "\n"
-                "If we need to contact you, we will use the following phone number and email: \n"
-                "Name: " + str(name) + "\n"
-                "Phone: " + str(phone) + "\n"
-                "Email: " + str(email) + "\n"
-                "\n"
-                "Package purchased: " + str(subject[0]) + "\n"
-                "Total amount paid: " + str(subject[1]) + "\n"
-                "\n"
-                "If you have any questions please call or text: \n"
-                "Leena Marathay at 408-471-7004, \n"
-                "Email Leena@nityaayurveda.com \n"
-                "\n"
-                "Thank you - Nitya Ayurveda\n\n"
-            )
-            mail.send(msg)
-            # print("First email sent")
-
-            # Send email to Practitioner
-            msg2 = Message(
-                "New appointment booked!",
-                sender="support@nityaayurveda.com",
-                # recipients=[email],
-                recipients=["Lmarathay@gmail.com",
-                            "pmarathay@gmail.com"],
-            )
-            # practitioner email
-            # msg = Message("Test email", sender='support@mealsfor.me', recipients=["pmarathay@gmail.com"])
-            msg2.body = (
-                "Hello Leena" + "\n"
-                "\n"
-                "Congratulations someone booked another appointment. \n"
-                "Here are the appointment details: \n"
-                "Date: " +
-                str(day) + ", " + str(month_name) + " " +
-                str(subject[2][8:10]) + ", " + str(subject[2][0:4]) + "\n"
-                "Time: " + str(time) + "\n"
-                "Location: " + str(location) + "\n"
-                "\n"
-                "Name: " + str(name) + "\n"
-                "Phone: " + str(phone) + "\n"
-                "Email: " + str(email) + "\n"
-                "Age: " + str(age) + "\n"
-                "Gender: " + str(gender) + "\n"
-                "\n"
-                "Package purchased: " + str(subject[0]) + "\n"
-                "Total amount paid: " + str(subject[1]) + "\n"
-                "Mode: " + str(mode) + "\n"
-                "\n"
-                "Notes: " + str(notes) + "\n"
-            )
-            mail.send(msg2)
-            # print("Second email sent")
-
+            send_appointment_email_via_sendEmail2(name, age, gender, mode, notes, email, phone, subject)
             return "Email Sent", 200
-
-        except:
+        except Exception as e:
+            print(f"SendEmail.get failed: {e}")
             raise BadRequest("Request failed mail, please try again later.")
         finally:
             disconnect(conn)
@@ -3516,23 +3465,13 @@ class SendEmail(Resource):
             data = request.get_json(force=True)
             print(data)
             email = data["email"]
-            msg = Message(
-                "Thanks for your Email!",
-                sender="support@nityaayurveda.com",
-                recipients=[email],
-                # recipients=[email, "Lmarathay@gmail.com",
-                #             "pmarathay@gmail.com"],
-            )
-
-            msg.body = (
+            body = (
                 "Hi !\n\n"
                 "We are looking forward to meeting with you! \n"
                 "Email support@nityaayurveda.com if you need to get in touch with us directly.\n"
                 "Thank you - Nitya Ayurveda\n\n"
             )
-            print('msg-bd----', msg.body)
-            print('msg-', msg)
-            mail.send(msg)
+            sendEmail2([email], "Thanks for your Note!", body)
             return "Email Sent", 200
 
         except:
@@ -4790,15 +4729,7 @@ class RegistrationConfirmation(Resource):
             conn = connect()
             data = request.get_json(force=True)
             name = data["name"]
-            msg = Message(
-                subject="Nitya Ayurveda Workshop Registration",
-                sender="support@nityaayurveda.com",
-                # recipients=[email]
-                recipients=[email, "Lmarathay@gmail.com",
-                            "pmarathay@gmail.com"],
-            )
-
-            msg.body = (
+            body = (
                 "Hello " + str(name) + "\n"
                 "\n"
                 "Thank you for registering for the workshop “Eating Right For Your Body Type” on Saturday, January 29th at 2 P.M. Mountain Standard Time. Looking forward to seeing you soon.\n"
@@ -4835,9 +4766,7 @@ class RegistrationConfirmation(Resource):
                 "Find your local number: https: // us02web.zoom.us/u/kbyiau6FLS"+"\n"
 
             )
-
-            print(msg.body)
-            mail.send(msg)
+            sendEmail2([email, "Lmarathay@gmail.com", "pmarathay@gmail.com"], "Nitya Ayurveda Workshop Registration", body)
             return "Email Sent"
         except:
             raise BadRequest("Request failed, please try again later.")
@@ -5155,7 +5084,7 @@ api.add_resource(purchaseDetails, "/api/v2/purchases")
 
 api.add_resource(SendEmail, "/api/v2/sendEmail")
 api.add_resource(SendEmailPaymentIntent, "/api/v2/SendEmailPaymentIntent")
-api.add_resource(SendEmailCRON_CLASS, "/api/v2/sendEmailCRON_CLASS")
+api.add_resource(SendEmailCRON_CLASS, "/api/v2/sendEmailCRON_CLASS","/api/v2/sendEmailCRON_CLASS/<string:recipient>/<string:subject>/<string:body>")
 api.add_resource(findCustomerUIDv1, "/api/v1/findCustomer")
 api.add_resource(findCustomerUIDv2, "/api/v2/findCustomer")
 api.add_resource(createAccount, "/api/v2/createAccount")
